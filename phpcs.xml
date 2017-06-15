@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!--
+  ~ This file is part of graze/parallel-process.
+  ~
+  ~ Copyright (c) 2017 Nature Delivered Ltd. <https://www.graze.com>
+  ~
+  ~ For the full copyright and license information, please view the LICENSE
+  ~ file that was distributed with this source code.
+  ~
+  ~ @license https://github.com/graze/parallel-process/blob/master/LICENSE.md
+  ~ @link    https://github.com/graze/parallel-process
+  -->
+
+<ruleset name="graze/standards">
+    <description>The graze PHP coding standard as defined in graze/standards.</description>
+    <rule ref="vendor/graze/standards/PHP/CodeSniffer/Graze/ruleset.xml"/>
+
+    <rule ref="Squiz.Commenting.FunctionComment">
+        <exclude name="Squiz.Commenting.FunctionComment.ScalarTypeHintMissing"/>
+    </rule>
+</ruleset>

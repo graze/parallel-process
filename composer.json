@@ -1,0 +1,52 @@
+{
+    "name": "graze/parallel-process",
+    "description": "run a pool of processes simultaneously",
+    "keywords": [
+        "graze",
+        "parallel-process"
+    ],
+    "homepage": "https://github.com/graze/parallel-process",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Harry Bragg",
+            "email": "harry.bragg@graze.com",
+            "role": "Developer"
+        },
+        {
+            "name": "Graze Developers",
+            "email": "developers@graze.com",
+            "homepage": "http://www.graze.com",
+            "role": "Development Team"
+        }
+    ],
+    "require": {
+        "php": "^5.5 | ^7.0",
+        "symfony/process": "^3.2",
+        "graze/data-structure": "^2.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^4.0 | ^5.0",
+        "squizlabs/php_codesniffer": "^2.9",
+        "graze/standards": "^1.0",
+        "symfony/console": "^3.2",
+        "graze/console-diff-renderer": "^0.4",
+        "mockery/mockery": "^0.9.9"
+    },
+    "suggests": {
+        "symfony/console": "^3.2",
+        "graze/console-diff-renderer": "^0.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "Graze\\ParallelProcess\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Graze\\ParallelProcess\\Test\\": "tests/src",
+            "Graze\\ParallelProcess\\Test\\Unit\\": "tests/unit",
+            "Graze\\ParallelProcess\\Test\\Integration\\": "tests/integration"
+        }
+    }
+}

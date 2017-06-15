@@ -1,0 +1,20 @@
+language: php
+
+dist: trusty
+
+php:
+  - 5.6
+  - 7.0
+  - 7.1
+  - hhvm
+  - nightly
+
+before_script:
+  - travis_retry composer update --no-interaction --prefer-dist
+
+script:
+  - vendor/bin/phpcs -p --warning-severity=0 src/ tests/
+  - vendor/bin/phpunit --coverage-clover=./tests/report/coverage.clover
+
+after_script:
+  - test -f ./tests/report/coverage.clover && (wget https://scrutinizer-ci.com/ocular.phar; php ocular.phar code-coverage:upload --format=php-clover ./tests/report/coverage.clover)
