@@ -92,6 +92,9 @@ class TableTest extends TestCase
      * @param int        $verbosity     OutputInterface::VERBOSITY_*
      * @param bool[]     $processStates an entry for each process to run, true = success, false = failure
      * @param string[][] $outputs       Regex patterns for the output string
+     *
+     * @throws \Exception
+     * @throws mixed
      */
     public function testOutput($verbosity, array $processStates, array $outputs)
     {
@@ -121,11 +124,13 @@ class TableTest extends TestCase
             $this->table->add($process, ['key' => 'value', 'run' => $i]);
         }
 
-        if ($oneFails) {
-            $this->expectException(ProcessFailedException::class);
+        try {
+            $this->table->run(0);
+        } catch (\Exception $e) {
+            if (!$oneFails || !$e instanceof ProcessFailedException) {
+                throw $e;
+            }
         }
-
-        $this->table->run(0);
 
         $this->compareOutputs($outputs, $this->output->getWritten());
     }
@@ -214,6 +219,23 @@ class TableTest extends TestCase
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %'],
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%'],
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <error>x</error>%'],
+                    [
+                        <<<DOC
+%The command "test" failed.
+
+Exit Code: 1\(failed\)
+
+Working directory: /tmp
+
+Output:
+================
+some text
+
+Error Output:
+================
+some error text%
+DOC
+                    ]
                 ],
             ],
             [ // errors will display an error
@@ -221,6 +243,23 @@ class TableTest extends TestCase
                 [false],
                 [
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <error>x</error>%'],
+                    [
+                        <<<DOC
+%The command "test" failed.
+
+Exit Code: 1\(failed\)
+
+Working directory: /tmp
+
+Output:
+================
+some text
+
+Error Output:
+================
+some error text%
+DOC
+                    ]
                 ],
             ],
             [ // multiple runs with verbosity will update each item one at a time
@@ -247,6 +286,23 @@ class TableTest extends TestCase
                         '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
                         '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) <error>x</error>%',
                     ],
+                    [
+                        <<<DOC
+%The command "test" failed.
+
+Exit Code: 1\(failed\)
+
+Working directory: /tmp
+
+Output:
+================
+some text
+
+Error Output:
+================
+some error text%
+DOC
+                    ]
                 ],
             ],
         ];

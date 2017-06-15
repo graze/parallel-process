@@ -1,4 +1,4 @@
-# Process Pool
+# Parallel Process
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/graze/parallel-process.svg?style=flat-square)](https://packagist.org/packages/graze/parallel-process)
 [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE.md)
@@ -8,6 +8,8 @@
 [![Total Downloads](https://img.shields.io/packagist/dt/graze/parallel-process.svg?style=flat-square)](https://packagist.org/packages/graze/parallel-process)
 
 Run multiple `Synfony\Process`'s at the same time.
+
+[![giphy](https://static.tumblr.com/490f5829d7bf754914a01e5d20de30f3/x0oab7z/i9Ro70j5c/tumblr_static__640_v2.gif)]()
 
 ## Install
 

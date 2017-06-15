@@ -21,20 +21,20 @@
         }
     ],
     "require": {
-        "php": "^5.5 | ^7.0",
-        "symfony/process": "^3.2",
+        "php": "^5.6 | ^7.0",
+        "symfony/process": "^2.8 | ^3.2",
         "graze/data-structure": "^2.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^4.0 | ^5.0",
+        "phpunit/phpunit": "^5.0",
         "squizlabs/php_codesniffer": "^2.9",
         "graze/standards": "^1.0",
-        "symfony/console": "^3.2",
+        "symfony/console": "^3.1",
         "graze/console-diff-renderer": "^0.4",
         "mockery/mockery": "^0.9.9"
     },
     "suggests": {
-        "symfony/console": "^3.2",
+        "symfony/console": "^2.8 | ^3.2",
         "graze/console-diff-renderer": "^0.4"
     },
     "autoload": {

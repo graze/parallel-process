@@ -9,8 +9,12 @@ php:
   - hhvm
   - nightly
 
+env:
+  - PREFER_LOWEST=--prefer-lowest
+  - PREFER_LOWEST=
+
 before_script:
-  - travis_retry composer update --no-interaction --prefer-dist
+  - travis_retry composer update --no-interaction --prefer-dist $PREFER_LOWEST
 
 script:
   - vendor/bin/phpcs -p --warning-severity=0 src/ tests/
