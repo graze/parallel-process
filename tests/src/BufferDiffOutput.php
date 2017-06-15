@@ -2,10 +2,10 @@
 
 namespace Graze\ParallelProcess\Test;
 
-use Graze\BufferedConsole\BufferedConsoleOutput;
+use Graze\DiffRenderer\DiffConsoleOutput;
 use Symfony\Component\Console\Output\ConsoleOutput;
 
-class BufferDiffOutput extends BufferedConsoleOutput
+class BufferDiffOutput extends DiffConsoleOutput
 {
     /** @var array */
     protected $written;

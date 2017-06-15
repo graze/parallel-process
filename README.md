@@ -36,6 +36,8 @@ $pool->run(); // blocking that will run till it finishes
 
 ### Table
 
+Visual output of the parallel processes
+
 Requires: `graze/console-diff-renderer`
 
 ```php
@@ -47,9 +49,7 @@ for ($i = 0; $i < 5; $i++) {
 $table->run();
 ```
 
-```
-
-```
+[![asciicast](https://asciinema.org/a/55r0rf9zin49s751j3a8zbdw1.png)](https://asciinema.org/a/55r0rf9zin49s751j3a8zbdw1)
 
 ## Testing
 
