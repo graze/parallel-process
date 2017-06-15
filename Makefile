@@ -5,6 +5,8 @@ VOLUME := /srv
 DOCKER_RUN_BASE := ${DOCKER} run --rm -t -v $$(pwd):${VOLUME} -w ${VOLUME}
 DOCKER_RUN := docker-compose run --rm test
 
+PREFER_LOWEST ?=
+
 .PHONY: install composer clean help run
 .PHONY: test lint lint-fix test-unit test-integration test-matrix test-coverage test-coverage-html test-coverage-clover
 
@@ -14,6 +16,9 @@ DOCKER_RUN := docker-compose run --rm test
 
 build: ## Download the dependencies then build the image :rocket:.
 	make 'composer-install --optimize-autoloader --ignore-platform-reqs'
+
+build-update: ## Update all dependencies
+	make 'composer-update --optimize-autoloader ${PREFER_LOWEST}'
 
 composer-%: ## Run a composer command, `make "composer-<command> [...]"`.
 	${DOCKER} run -t --rm \
@@ -40,11 +45,14 @@ test-example: ## Run the example application
 	${DOCKER_RUN} php tests/example/app.php
 
 test-matrix: ## Run the unit tests against multiple targets.
-	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} php:5.5-alpine" test
-	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} php:5.6-alpine" test
-	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} php:7.0-alpine" test
-	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} php:7.1-alpine" test
-	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} hhvm/hhvm:latest" test
+	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} php:5.6-alpine" PREFER_LOWEST=--prefer-lowest build-update test
+	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} php:7.0-alpine" PREFER_LOWEST=--prefer-lowest build-update test
+	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} php:7.1-alpine" PREFER_LOWEST=--prefer-lowest build-update test
+	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} hhvm/hhvm:latest" PREFER_LOWEST=--prefer-lowest build-update test
+	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} php:5.6-alpine" build-update test
+	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} php:7.0-alpine" build-update test
+	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} php:7.1-alpine" build-update test
+	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} hhvm/hhvm:latest" build-update test
 
 test-coverage: ## Run all tests and output coverage to the console.
 	${DOCKER_RUN} phpdbg7 -qrr vendor/bin/phpunit --coverage-text
