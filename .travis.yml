@@ -19,6 +19,10 @@ env:
   - PREFER_LOWEST=--prefer-lowest
   - PREFER_LOWEST=
 
+matrix:
+  allow_failures:
+    - php: nightly
+
 before_script:
   - travis_retry composer update --no-interaction --prefer-dist $PREFER_LOWEST
 
