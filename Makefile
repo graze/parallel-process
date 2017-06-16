@@ -8,7 +8,8 @@ DOCKER_RUN := docker-compose run --rm test
 PREFER_LOWEST ?=
 
 .PHONY: install composer clean help run
-.PHONY: test lint lint-fix test-unit test-integration test-matrix test-coverage test-coverage-html test-coverage-clover
+.PHONY: lint lint-fix
+.PHONY: test test-unit test-example test-lowest test-matrix test-coverage test-coverage-html test-coverage-clover
 
 .SILENT: help
 
@@ -39,16 +40,22 @@ lint-fix: ## Run phpcsf and fix possible lint errors.
 	${DOCKER_RUN} vendor/bin/phpcbf -p src/ tests/
 
 test-unit: ## Run the unit testsuite.
-	${DOCKER_RUN} vendor/bin/phpunit --colors=always --testsuite unit
+	${DOCKER_RUN} vendor/bin/phpunit --testsuite unit
 
 test-example: ## Run the example application
 	${DOCKER_RUN} php tests/example/app.php
 
+test-lowest: ## Test using the lowest possible versions of the dependencies
+test-lowest: PREFER_LOWEST=--prefer-lowest
+test-lowest: build-update test
+
 test-matrix: ## Run the unit tests against multiple targets.
+	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} php:5.5-alpine" PREFER_LOWEST=--prefer-lowest build-update test
 	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} php:5.6-alpine" PREFER_LOWEST=--prefer-lowest build-update test
 	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} php:7.0-alpine" PREFER_LOWEST=--prefer-lowest build-update test
 	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} php:7.1-alpine" PREFER_LOWEST=--prefer-lowest build-update test
 	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} hhvm/hhvm:latest" PREFER_LOWEST=--prefer-lowest build-update test
+	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} php:5.5-alpine" build-update test
 	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} php:5.6-alpine" build-update test
 	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} php:7.0-alpine" build-update test
 	${MAKE} DOCKER_RUN="${DOCKER_RUN_BASE} php:7.1-alpine" build-update test
