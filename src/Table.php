@@ -15,7 +15,6 @@ namespace Graze\ParallelProcess;
 
 use Exception;
 use Graze\DiffRenderer\DiffConsoleOutput;
-use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
@@ -38,10 +37,10 @@ class Table
     /**
      * Table constructor.
      *
-     * @param ConsoleOutputInterface $output
-     * @param Pool|null              $pool
+     * @param OutputInterface $output
+     * @param Pool|null       $pool
      */
-    public function __construct(ConsoleOutputInterface $output, Pool $pool = null)
+    public function __construct(OutputInterface $output, Pool $pool = null)
     {
         $this->processPool = $pool ?: new Pool();
         if (!$output instanceof DiffConsoleOutput) {
