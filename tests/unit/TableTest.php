@@ -23,6 +23,7 @@ class TableTest extends TestCase
 
     public function setUp()
     {
+        mb_internal_encoding("UTF-8");
         $this->output = new BufferDiffOutput();
         $this->pool = Mockery::mock(Pool::class)->makePartial();
         $this->table = new Table($this->output, $this->pool);
