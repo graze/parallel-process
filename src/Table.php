@@ -15,6 +15,7 @@ namespace Graze\ParallelProcess;
 
 use Exception;
 use Graze\DiffRenderer\DiffConsoleOutput;
+use Graze\DiffRenderer\Terminal\TerminalInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
@@ -33,6 +34,8 @@ class Table
     private $maxLengths = [];
     /** @var DiffConsoleOutput */
     private $output;
+    /** @var TerminalInterface */
+    private $terminal;
 
     /**
      * Table constructor.
@@ -49,6 +52,7 @@ class Table
         } else {
             $this->output = $output;
         }
+        $this->terminal = $this->output->getTerminal();
         $this->exceptions = [];
     }
 
@@ -87,7 +91,7 @@ class Table
             $length = isset($this->maxLengths[$key]) ? '-' . $this->maxLengths[$key] : '';
             $info[] = sprintf("<info>%s</info>: %{$length}s", $key, $value);
         }
-        $extra = $extra ? '   ' . $extra : '';
+        $extra = $extra ? '   ' . $this->terminal->filter($extra) : '';
         return sprintf("%s (<comment>%6.2fs</comment>) %s%s", implode(' ', $info), $duration, $status, $extra);
     }
 
