@@ -30,7 +30,7 @@
         "squizlabs/php_codesniffer": "^2.9",
         "graze/standards": "^1.0",
         "symfony/console": "^3.1",
-        "graze/console-diff-renderer": "^0.4.2",
+        "graze/console-diff-renderer": "^0.5",
         "mockery/mockery": "^0.9.9"
     },
     "suggest": {
