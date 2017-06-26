@@ -37,6 +37,18 @@ class TableTest extends TestCase
         $this->assertInstanceOf(Table::class, $table);
     }
 
+    public function testShowOutput()
+    {
+        $output = Mockery::mock(ConsoleOutputInterface::class);
+        $table = new Table($output);
+
+        $this->assertTrue($table->isShowOutput());
+
+        $table->setShowOutput(false);
+
+        $this->assertFalse($table->isShowOutput());
+    }
+
     public function testSpinnerLoop()
     {
         $this->output->setVerbosity(OutputInterface::VERBOSITY_VERBOSE);
@@ -91,25 +103,30 @@ class TableTest extends TestCase
      * @dataProvider outputData
      *
      * @param int        $verbosity     OutputInterface::VERBOSITY_*
+     * @param bool       $showOutput    Should it display some output text
      * @param bool[]     $processStates an entry for each process to run, true = success, false = failure
      * @param string[][] $outputs       Regex patterns for the output string
      *
      * @throws \Exception
-     * @throws mixed
      */
-    public function testOutput($verbosity, array $processStates, array $outputs)
+    public function testOutput($verbosity, $showOutput, array $processStates, array $outputs)
     {
         $this->output->setVerbosity($verbosity);
+        $this->table->setShowOutput($showOutput);
 
         $oneFails = false;
 
         for ($i = 0; $i < count($processStates); $i++) {
             $process = Mockery::mock(Process::class);
             $process->shouldReceive('stop');
-            $process->shouldReceive('start')->once();
+            $process->shouldReceive('start')->with(Mockery::on(function ($closure) {
+                call_user_func($closure, Process::OUT, 'some text');
+                return true;
+            }))->once();
             $process->shouldReceive('isStarted')->andReturn(false, true);
             $process->shouldReceive('isRunning')->andReturn(false, true, false); // add, start, check, check
             $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn($processStates[$i]);
+            $process->shouldReceive('getOutput')->andReturn('some text');
 
             if (!$processStates[$i]) {
                 $process->shouldReceive('getCommandLine')->andReturn('test');
@@ -117,7 +134,6 @@ class TableTest extends TestCase
                 $process->shouldReceive('getExitCodeText')->andReturn('failed');
                 $process->shouldReceive('getWorkingDirectory')->andReturn('/tmp');
                 $process->shouldReceive('isOutputDisabled')->andReturn(false);
-                $process->shouldReceive('getOutput')->andReturn('some text');
                 $process->shouldReceive('getErrorOutput')->andReturn('some error text');
                 $oneFails = true;
             }
@@ -165,6 +181,7 @@ class TableTest extends TestCase
         return [
             [ // verbose with single valid run
                 OutputInterface::VERBOSITY_VERBOSE,
+                false,
                 [true],
                 [
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %'],
@@ -174,6 +191,7 @@ class TableTest extends TestCase
             ],
             [ // normal verbosity only writes a single line
                 OutputInterface::VERBOSITY_NORMAL,
+                false,
                 [true],
                 [
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%'],
@@ -181,6 +199,7 @@ class TableTest extends TestCase
             ],
             [
                 OutputInterface::VERBOSITY_NORMAL,
+                false,
                 [true, true],
                 [
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%'],
@@ -189,6 +208,7 @@ class TableTest extends TestCase
             ],
             [ // multiple runs with verbosity will update each item one at a time
                 OutputInterface::VERBOSITY_VERBOSE,
+                false,
                 [true, true],
                 [
                     [
@@ -215,6 +235,7 @@ class TableTest extends TestCase
             ],
             [ // errors will display an error
                 OutputInterface::VERBOSITY_VERBOSE,
+                false,
                 [false],
                 [
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %'],
@@ -236,11 +257,13 @@ Error Output:
 ================
 some error text%
 DOC
-                    ]
+                        ,
+                    ],
                 ],
             ],
             [ // errors will display an error
                 OutputInterface::VERBOSITY_NORMAL,
+                false,
                 [false],
                 [
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <error>x</error>%'],
@@ -260,11 +283,13 @@ Error Output:
 ================
 some error text%
 DOC
-                    ]
+                        ,
+                    ],
                 ],
             ],
             [ // multiple runs with verbosity will update each item one at a time
                 OutputInterface::VERBOSITY_VERBOSE,
+                false,
                 [true, false],
                 [
                     [
@@ -303,7 +328,18 @@ Error Output:
 ================
 some error text%
 DOC
-                    ]
+                        ,
+                    ],
+                ],
+            ],
+            [ // include output
+                OutputInterface::VERBOSITY_VERBOSE,
+                true,
+                [true],
+                [
+                    ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %'],
+                    ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]  some text%'],
+                    ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>  some text%'],
                 ],
             ],
         ];

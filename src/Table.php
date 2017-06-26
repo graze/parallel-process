@@ -36,6 +36,8 @@ class Table
     private $output;
     /** @var TerminalInterface */
     private $terminal;
+    /** @var bool */
+    private $showOutput = true;
 
     /**
      * Table constructor.
@@ -91,7 +93,7 @@ class Table
             $length = isset($this->maxLengths[$key]) ? '-' . $this->maxLengths[$key] : '';
             $info[] = sprintf("<info>%s</info>: %{$length}s", $key, $value);
         }
-        $extra = $extra ? '   ' . $this->terminal->filter($extra) : '';
+        $extra = $extra ? '  ' . $this->terminal->filter($extra) : '';
         return sprintf("%s (<comment>%6.2fs</comment>) %s%s", implode(' ', $info), $duration, $status, $extra);
     }
 
@@ -111,7 +113,7 @@ class Table
                     $data,
                     mb_substr(static::SPINNER, $spinner++, 1),
                     $duration,
-                    $last
+                    ($this->showOutput ? $last : '')
                 );
                 if ($spinner > mb_strlen(static::SPINNER) - 1) {
                     $spinner = 0;
@@ -175,5 +177,25 @@ class Table
         }
 
         return $output;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isShowOutput()
+    {
+        return $this->showOutput;
+    }
+
+    /**
+     * @param bool $showOutput
+     *
+     * @return $this
+     */
+    public function setShowOutput($showOutput)
+    {
+        $this->showOutput = $showOutput;
+
+        return $this;
     }
 }
