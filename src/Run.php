@@ -57,7 +57,7 @@ class Run implements RunInterface
     {
         if (!$this->process->isRunning()) {
             $this->process->start(function ($type, $data) {
-                $this->last = trim($data);
+                $this->last = rtrim($data);
             });
             $this->started = microtime(true);
             $this->completed = false;

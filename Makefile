@@ -31,7 +31,7 @@ composer-%: ## Run a composer command, `make "composer-<command> [...]"`.
 # Testing
 
 test: ## Run the unit and integration testsuites.
-test: lint test-unit test-integration
+test: lint test-unit
 
 lint: ## Run phpcs against the code.
 	${DOCKER_RUN} vendor/bin/phpcs -p --warning-severity=0 src/ tests/
