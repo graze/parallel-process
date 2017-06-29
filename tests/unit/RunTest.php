@@ -78,8 +78,8 @@ class RunTest extends TestCase
         $process->shouldReceive('isSuccessful')
                 ->andReturn(true);
 
-        $this->assertTrue($run->isRunning());
-        $this->assertFalse($run->isRunning());
+        $this->assertTrue($run->poll());
+        $this->assertFalse($run->poll());
         $this->assertTrue($run->isSuccessful());
         $this->assertTrue($run->hasStarted());
     }
@@ -102,7 +102,7 @@ class RunTest extends TestCase
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
         $run->start();
-        $this->assertFalse($run->isRunning());
+        $this->assertFalse($run->poll());
     }
 
     public function testOnFailure()
@@ -123,7 +123,7 @@ class RunTest extends TestCase
         $process->shouldReceive('isSuccessful')->once()->andReturn(false);
 
         $run->start();
-        $this->assertFalse($run->isRunning());
+        $this->assertFalse($run->poll());
     }
 
     public function testOnProgress()
@@ -144,14 +144,11 @@ class RunTest extends TestCase
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
         $run->start();
-        $this->assertTrue($run->isRunning());
-        $this->assertFalse($run->isRunning());
+        $this->assertTrue($run->poll());
+        $this->assertFalse($run->poll());
     }
 
-    /**
-     * @expectedException \Graze\ParallelProcess\Exceptions\AlreadyRunningException
-     */
-    public function testStartingAfterStartedWillThrowAnException()
+    public function testStartingAfterStartedWillDoNothing()
     {
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
@@ -161,7 +158,7 @@ class RunTest extends TestCase
         $process->shouldReceive('isRunning')
                 ->andReturn(true);
 
-        $run->start();
+        $this->assertSame($run, $run->start());
     }
 
     public function testEventsProvideDurationAndLastMessage()
@@ -188,6 +185,6 @@ class RunTest extends TestCase
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
         $run->start();
-        $this->assertFalse($run->isRunning());
+        $this->assertFalse($run->poll());
     }
 }

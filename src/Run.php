@@ -2,7 +2,6 @@
 
 namespace Graze\ParallelProcess;
 
-use Graze\ParallelProcess\Exceptions\AlreadyRunningException;
 use Symfony\Component\Process\Process;
 
 class Run implements RunInterface
@@ -61,8 +60,6 @@ class Run implements RunInterface
             });
             $this->started = microtime(true);
             $this->completed = false;
-        } else {
-            throw new AlreadyRunningException("start: this run is already running");
         }
 
         return $this;
@@ -73,7 +70,7 @@ class Run implements RunInterface
      *
      * @return bool true if the process is currently running (started and not terminated)
      */
-    public function isRunning()
+    public function poll()
     {
         if ($this->completed || !$this->hasStarted()) {
             return false;
@@ -93,6 +90,16 @@ class Run implements RunInterface
             $this->update($this->onFailure);
         }
         return false;
+    }
+
+    /**
+     * Return if the underlying process is running
+     *
+     * @return bool
+     */
+    public function isRunning()
+    {
+        return $this->process->isRunning();
     }
 
     /**

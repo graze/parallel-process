@@ -128,26 +128,13 @@ class PoolTest extends TestCase
         $this->assertEquals($this->process, $run->getProcess());
     }
 
-    public function testAddingRunningProcess()
-    {
-        $process = Mockery::mock(Process::class);
-        $process->shouldReceive('stop');
-        $process->shouldReceive('isStarted')->andReturn(true);
-        $process->shouldReceive('isRunning')->andReturn(true);
-
-        $pool = new Pool();
-        $pool->add($process);
-
-        $this->assertTrue($pool->hasStarted());
-        $this->assertTrue($pool->isRunning());
-        $this->assertFalse($pool->isSuccessful());
-    }
-
     public function testSuccessfulRun()
     {
         $run = Mockery::mock(RunInterface::class);
         $run->shouldReceive('isRunning')
-            ->andReturn(false, true, false);
+            ->andReturn(false);
+        $run->shouldReceive('poll')
+            ->andReturn(true, false);
         $run->shouldReceive('hasStarted')
             ->andReturn(true);
         $run->shouldReceive('isSuccessful')
@@ -164,32 +151,34 @@ class PoolTest extends TestCase
     }
 
     /**
-     * @expectedException \Graze\ParallelProcess\Exceptions\AlreadyRunningException
+     * @expectedException \Graze\ParallelProcess\Exceptions\NotRunningException
      */
-    public function testPoolUnableToAddProcessWhenPoolHasStarted()
+    public function testPoolUnableToAddRunningProcessWhenPoolHasNotStarted()
     {
         $run = Mockery::mock(RunInterface::class);
         $run->shouldReceive('isRunning')
             ->andReturn(true);
 
-        $pool = new Pool([$run]);
+        $pool = new Pool();
 
-        $run2 = Mockery::mock(RunInterface::class);
-        $run2->shouldReceive('isRunning')
-             ->andReturn(false);
-        $pool->add($run2);
+        $pool->add($run);
     }
 
     public function testPoolAbleToAddRunningProcessWhenPoolHasStarted()
     {
         $run = Mockery::mock(RunInterface::class);
         $run->shouldReceive('isRunning')
-            ->andReturn(true);
+            ->andReturn(false);
+        $run->shouldReceive('hasStarted')
+            ->andReturn(false);
+        $run->shouldReceive('start');
         $pool = new Pool([$run]);
+        $pool->start();
 
         $run2 = Mockery::mock(RunInterface::class);
         $run2->shouldReceive('isRunning')
              ->andReturn(true);
+        $run2->shouldReceive('start');
         $pool->add($run2);
 
         $this->assertEquals(2, $pool->count());
@@ -200,9 +189,9 @@ class PoolTest extends TestCase
     {
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
-        $process->shouldReceive('isStarted')->andReturn(false, true);
+        $process->shouldReceive('isStarted')->andReturn(true);
         $process->shouldReceive('isRunning')->andReturn(false);
-        $process->shouldReceive('start')->once();
+        $process->shouldReceive('start')->atLeast()->once();
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
         $hit = false;
@@ -210,7 +199,7 @@ class PoolTest extends TestCase
         $pool = new Pool(
             [],
             function ($proc) use ($process, &$hit) {
-                $this->assertEquals($proc, $process);
+                $this->assertSame($proc, $process);
                 $hit = true;
             }
         );
@@ -226,9 +215,9 @@ class PoolTest extends TestCase
     {
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
-        $process->shouldReceive('isStarted')->andReturn(false, true);
+        $process->shouldReceive('isStarted')->andReturn(true);
         $process->shouldReceive('isRunning')->andReturn(false);
-        $process->shouldReceive('start')->once();
+        $process->shouldReceive('start')->atLeast()->once();
         $process->shouldReceive('isSuccessful')->once()->andReturn(false);
 
         $hit = false;
@@ -253,9 +242,9 @@ class PoolTest extends TestCase
     {
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
-        $process->shouldReceive('isStarted')->andReturn(false, true);
-        $process->shouldReceive('isRunning')->andReturn(false, true, false);
-        $process->shouldReceive('start')->once();
+        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isRunning')->andReturn(false, false, true, false);
+        $process->shouldReceive('start')->atLeast()->once();
         $process->shouldReceive('isSuccessful')->once()->andReturn(false);
 
         $hit = false;
@@ -281,9 +270,9 @@ class PoolTest extends TestCase
     {
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
-        $process->shouldReceive('isStarted')->andReturn(false, true);
+        $process->shouldReceive('isStarted')->andReturn(true);
         $process->shouldReceive('isRunning')->andReturn(false);
-        $process->shouldReceive('start')->once();
+        $process->shouldReceive('start')->atLeast()->once();
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
         $hit = false;
@@ -308,9 +297,10 @@ class PoolTest extends TestCase
     {
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
-        $process->shouldReceive('isStarted')->andReturn(false, true);
+        $process->shouldReceive('isStarted')->andReturn(true);
         $process->shouldReceive('isRunning')->andReturn(false);
-        $process->shouldReceive('start')->once();
+        $process->shouldReceive('poll')->andReturn(false);
+        $process->shouldReceive('start')->atLeast()->once();
         $process->shouldReceive('isSuccessful')->once()->andReturn(false);
 
         $hit = false;
@@ -335,9 +325,9 @@ class PoolTest extends TestCase
     {
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
-        $process->shouldReceive('isStarted')->andReturn(false, true);
-        $process->shouldReceive('isRunning')->andReturn(false, true, false);
-        $process->shouldReceive('start')->once();
+        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isRunning')->andReturn(false, false, true, false);
+        $process->shouldReceive('start')->atLeast()->once();
         $process->shouldReceive('isSuccessful')->once()->andReturn(false);
 
         $hit = false;

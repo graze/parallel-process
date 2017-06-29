@@ -18,7 +18,7 @@ interface RunInterface
      *
      * @return $this
      *
-     * @throws \Graze\ParallelProcess\Exceptions\AlreadyRunningException
+     * @throws \Graze\ParallelProcess\Exceptions\NotRunningException
      */
     public function start();
 
@@ -30,9 +30,16 @@ interface RunInterface
     public function isSuccessful();
 
     /**
-     * Polls to see if this process is running
+     * We think this is running
      *
      * @return bool
      */
     public function isRunning();
+
+    /**
+     * Pools to see if this process is running
+     *
+     * @return bool
+     */
+    public function poll();
 }

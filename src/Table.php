@@ -38,6 +38,8 @@ class Table
     private $terminal;
     /** @var bool */
     private $showOutput = true;
+    /** @var bool */
+    private $showSummary = true;
 
     /**
      * Table constructor.
@@ -142,6 +144,27 @@ class Table
     }
 
     /**
+     * @return string
+     */
+    private function getSummary()
+    {
+        if ($this->processPool->hasStarted()) {
+            if ($this->processPool->isRunning()) {
+                return sprintf(
+                    '<comment>Total</comment>: %2d, <comment>Running</comment>: %2d, <comment>Waiting</comment>: %2d',
+                    $this->processPool->count(),
+                    count($this->processPool->getRunning()),
+                    count($this->processPool->getWaiting())
+                );
+            } else {
+                return '';
+            }
+        } else {
+            return 'waiting...';
+        }
+    }
+
+    /**
      * Render a specific row
      *
      * @param int $row
@@ -149,7 +172,8 @@ class Table
     private function render($row = 0)
     {
         if ($this->output->getVerbosity() >= OutputInterface::VERBOSITY_VERBOSE) {
-            $this->output->reWrite($this->rows, true);
+            $rows = ($this->showSummary ? array_merge($this->rows, [$this->getSummary()]) : $this->rows);
+            $this->output->reWrite($rows, !$this->showSummary);
         } else {
             $this->output->writeln($this->rows[$row]);
         }
@@ -195,7 +219,25 @@ class Table
     public function setShowOutput($showOutput)
     {
         $this->showOutput = $showOutput;
+        return $this;
+    }
 
+    /**
+     * @return bool
+     */
+    public function isShowSummary()
+    {
+        return $this->showSummary;
+    }
+
+    /**
+     * @param bool $showSummary
+     *
+     * @return $this
+     */
+    public function setShowSummary($showSummary)
+    {
+        $this->showSummary = $showSummary;
         return $this;
     }
 }
