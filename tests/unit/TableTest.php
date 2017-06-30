@@ -375,7 +375,7 @@ DOC
                     [
                         '%<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %',
                         '%<info>key</info>: value <info>run</info>: 1 \(<comment>  0.00s</comment>\) %',
-                        '%%',
+                        '%^$%',
                     ],
                     [
                         '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
@@ -396,6 +396,11 @@ DOC
                         '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
                         '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
                         '%<comment>Total</comment>:  2, <comment>Running</comment>:  2, <comment>Waiting</comment>:  0%',
+                    ],
+                    [
+                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                        '%^$%',
                     ],
                 ],
             ],

@@ -191,6 +191,9 @@ class Table
             $this->render();
         }
         $output = $this->processPool->run($checkInterval);
+        if ($this->output->getVerbosity() >= OutputInterface::VERBOSITY_VERBOSE && $this->showSummary) {
+            $this->render();
+        }
 
         if (count($this->exceptions) > 0) {
             foreach ($this->exceptions as $exception) {
