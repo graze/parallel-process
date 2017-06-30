@@ -44,24 +44,38 @@ class TableTest extends TestCase
 
         $this->assertTrue($table->isShowOutput());
 
-        $table->setShowOutput(false);
+        $this->assertSame($table, $table->setShowOutput(false));
 
         $this->assertFalse($table->isShowOutput());
     }
 
+    public function testShowSummary()
+    {
+        $output = Mockery::mock(ConsoleOutputInterface::class);
+        $table = new Table($output);
+
+        $this->assertTrue($table->isShowSummary());
+
+        $this->assertSame($table, $table->setShowSummary(false));
+
+        $this->assertFalse($table->isShowSummary());
+    }
+
     public function testSpinnerLoop()
     {
+        $this->table->setShowSummary(false);
         $this->output->setVerbosity(OutputInterface::VERBOSITY_VERBOSE);
 
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
         $process->shouldReceive('start')->once();
-        $process->shouldReceive('isStarted')->andReturn(false, true);
+        $process->shouldReceive('isStarted')->andReturn(true);
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            true,  // start
+            false, // start
             true,  // check
             true,  // ...
+            true,
             true,
             true,
             true,
@@ -104,15 +118,17 @@ class TableTest extends TestCase
      *
      * @param int        $verbosity     OutputInterface::VERBOSITY_*
      * @param bool       $showOutput    Should it display some output text
+     * @param bool       $showSummary   Should we show a summary
      * @param bool[]     $processStates an entry for each process to run, true = success, false = failure
      * @param string[][] $outputs       Regex patterns for the output string
      *
      * @throws \Exception
      */
-    public function testOutput($verbosity, $showOutput, array $processStates, array $outputs)
+    public function testOutput($verbosity, $showOutput, $showSummary, array $processStates, array $outputs)
     {
         $this->output->setVerbosity($verbosity);
         $this->table->setShowOutput($showOutput);
+        $this->table->setShowSummary($showSummary);
 
         $oneFails = false;
 
@@ -123,8 +139,8 @@ class TableTest extends TestCase
                 call_user_func($closure, Process::OUT, 'some text');
                 return true;
             }))->once();
-            $process->shouldReceive('isStarted')->andReturn(false, true);
-            $process->shouldReceive('isRunning')->andReturn(false, true, false); // add, start, check, check
+            $process->shouldReceive('isStarted')->andReturn(true);
+            $process->shouldReceive('isRunning')->andReturn(false, false, true, false); // add, start, check, check
             $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn($processStates[$i]);
             $process->shouldReceive('getOutput')->andReturn('some text');
 
@@ -168,7 +184,7 @@ class TableTest extends TestCase
         for ($i = 0; $i < count($expected); $i++) {
             $this->assertSameSize($expected[$i], $actual[$i]);
             for ($j = 0; $j < count($expected[$i]); $j++) {
-                $this->assertRegExp($expected[$i][$j], $actual[$i][$j]);
+                $this->assertRegExp($expected[$i][$j], $actual[$i][$j], sprintf('group: %d, line: %d', $i + 1, $j + 1));
             }
         }
     }
@@ -182,6 +198,7 @@ class TableTest extends TestCase
             [ // verbose with single valid run
                 OutputInterface::VERBOSITY_VERBOSE,
                 false,
+                false,
                 [true],
                 [
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %'],
@@ -192,6 +209,7 @@ class TableTest extends TestCase
             [ // normal verbosity only writes a single line
                 OutputInterface::VERBOSITY_NORMAL,
                 false,
+                false,
                 [true],
                 [
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%'],
@@ -199,6 +217,7 @@ class TableTest extends TestCase
             ],
             [
                 OutputInterface::VERBOSITY_NORMAL,
+                false,
                 false,
                 [true, true],
                 [
@@ -208,6 +227,7 @@ class TableTest extends TestCase
             ],
             [ // multiple runs with verbosity will update each item one at a time
                 OutputInterface::VERBOSITY_VERBOSE,
+                false,
                 false,
                 [true, true],
                 [
@@ -236,6 +256,7 @@ class TableTest extends TestCase
             [ // errors will display an error
                 OutputInterface::VERBOSITY_VERBOSE,
                 false,
+                false,
                 [false],
                 [
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %'],
@@ -264,6 +285,7 @@ DOC
             [ // errors will display an error
                 OutputInterface::VERBOSITY_NORMAL,
                 false,
+                false,
                 [false],
                 [
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <error>x</error>%'],
@@ -289,6 +311,7 @@ DOC
             ],
             [ // multiple runs with verbosity will update each item one at a time
                 OutputInterface::VERBOSITY_VERBOSE,
+                false,
                 false,
                 [true, false],
                 [
@@ -335,11 +358,50 @@ DOC
             [ // include output
                 OutputInterface::VERBOSITY_VERBOSE,
                 true,
+                false,
                 [true],
                 [
                     ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %'],
                     ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]  some text%'],
                     ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>  some text%'],
+                ],
+            ],
+            [ // include a summary
+                OutputInterface::VERBOSITY_VERBOSE,
+                false,
+                true,
+                [true, true],
+                [
+                    [
+                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>  0.00s</comment>\) %',
+                        '%^$%',
+                    ],
+                    [
+                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>  0.00s</comment>\) %',
+                        '%<comment>Total</comment>:  2, <comment>Running</comment>:  2, <comment>Waiting</comment>:  0%',
+                    ],
+                    [
+                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
+                        '%<comment>Total</comment>:  2, <comment>Running</comment>:  2, <comment>Waiting</comment>:  0%',
+                    ],
+                    [
+                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
+                        '%<comment>Total</comment>:  2, <comment>Running</comment>:  2, <comment>Waiting</comment>:  0%',
+                    ],
+                    [
+                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                        '%<comment>Total</comment>:  2, <comment>Running</comment>:  2, <comment>Waiting</comment>:  0%',
+                    ],
+                    [
+                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                        '%^$%',
+                    ],
                 ],
             ],
         ];
