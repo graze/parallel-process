@@ -43,7 +43,9 @@ Visual output of the parallel processes
 Requires: `graze/console-diff-renderer`
 
 ```php
-$table = new Table($output);
+$pool = new \Graze\ParallelProcess\Pool();
+$pool->setMaxSimultaneous(3);
+$table = new \Graze\ParallelProcess\Table($output, $pool);
 for ($i = 0; $i < 5; $i++) {
     $time = $i + 5;
     $table->add(new Process(sprintf('for i in `seq 1 %d` ; do date ; sleep 1 ; done', $time)), ['sleep' => $time]);
@@ -51,7 +53,7 @@ for ($i = 0; $i < 5; $i++) {
 $table->run();
 ```
 
-[![asciicast](https://asciinema.org/a/55r0rf9zin49s751j3a8zbdw1.png)](https://asciinema.org/a/55r0rf9zin49s751j3a8zbdw1)
+[![asciicast](https://asciinema.org/a/jxQC9IeJgwQOMMf1bUWpan3lX.png)](https://asciinema.org/a/jxQC9IeJgwQOMMf1bUWpan3lX)
 
 ## Testing
 
