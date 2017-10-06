@@ -40,8 +40,6 @@ $pool->run(); // blocking that will run till it finishes
 
 Visual output of the parallel processes
 
-Requires: `graze/console-diff-renderer`
-
 ```php
 $table = new Table($output);
 for ($i = 0; $i < 5; $i++) {
@@ -52,6 +50,23 @@ $table->run();
 ```
 
 [![asciicast](https://asciinema.org/a/55r0rf9zin49s751j3a8zbdw1.png)](https://asciinema.org/a/55r0rf9zin49s751j3a8zbdw1)
+
+### Lines
+
+Write the output of each process to the screen
+
+```php
+$pool = new \Graze\ParallelProcess\Pool();
+$pool->setMaxSimultaneous(3);
+$lines = new Lines($output, $pool);
+for ($i = 0; $i < 5; $i++) {
+    $time = $i + 5;
+    $lines->add(new Process(sprintf('for i in `seq 1 %d` ; do date ; sleep 1 ; done', $time)), ['sleep' . $time]);
+}
+$lines->run();
+```
+
+[![asciicast](https://asciinema.org/a/Zpr1JhGTxmsoDXBFRjsRek4wt.png)](https://asciinema.org/a/Zpr1JhGTxmsoDXBFRjsRek4wt)
 
 ## Testing
 

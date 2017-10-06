@@ -111,6 +111,87 @@ class TableTest extends TestCase
         $this->compareOutputs($expected, $this->output->getWritten());
     }
 
+    public function testValueDataArrayDoesNotShowTheKey()
+    {
+        $this->table->setShowSummary(false);
+        $this->output->setVerbosity(OutputInterface::VERBOSITY_VERBOSE);
+
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('stop');
+        $process->shouldReceive('start')->once();
+        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isRunning')->andReturn(
+            false, // add
+            false, // start
+            true,  // check
+            false // complete
+        );
+        $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
+
+        $this->table->add($process, ['value', 'value2']);
+
+        $this->table->run(0);
+
+        $expected = [
+            ['%value value2 \(<comment>  0.00s</comment>\) %'],
+            ['%value value2 \(<comment>[ 0-9\.s]+</comment>\) ⠋%'],
+            ['%value value2 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%'],
+        ];
+
+        $this->compareOutputs($expected, $this->output->getWritten());
+    }
+
+    public function testSummaryIsWaitingBeforeTheProcessStarts()
+    {
+        $this->output->setVerbosity(OutputInterface::VERBOSITY_VERBOSE);
+        $this->table->setShowOutput(true);
+        $this->table->setShowSummary(true);
+
+        $oneFails = false;
+
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('stop');
+        $process->shouldReceive('start')->with(Mockery::on(function ($closure) {
+            call_user_func($closure, Process::OUT, 'some text');
+            return true;
+        }))->once();
+        $process->shouldReceive('isStarted')->andReturn(false, true);
+        $process->shouldReceive('isRunning')->andReturn(false, false, true, false); // add, start, check, check
+        $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
+        $process->shouldReceive('getOutput')->andReturn('some text');
+
+        $this->table->add($process, ['key' => 'value']);
+
+        try {
+            $this->table->run(0);
+        } catch (\Exception $e) {
+            if (!$oneFails || !$e instanceof ProcessFailedException) {
+                throw $e;
+            }
+        }
+
+        $expected = [
+            [
+                '%<info>key</info>: value \(<comment>  0.00s</comment>\) %',
+                '%waiting...%',
+            ],
+            [
+                '%<info>key</info>: value \(<comment>  0.00s</comment>\) %',
+                '%<comment>Total</comment>:  1, <comment>Running</comment>:  1, <comment>Waiting</comment>:  0%',
+            ],
+            [
+                '%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                '%<comment>Total</comment>:  1, <comment>Running</comment>:  1, <comment>Waiting</comment>:  0%',
+            ],
+            [
+                '%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                '%^$%',
+            ],
+        ];
+
+        $this->compareOutputs($expected, $this->output->getWritten());
+    }
+
     /**
      * Runs a series of processes, each doing initial state, single on progress run, single complete entry
      *
@@ -166,27 +247,6 @@ class TableTest extends TestCase
         }
 
         $this->compareOutputs($outputs, $this->output->getWritten());
-    }
-
-    /**
-     * Compare the outputs with an expected input.
-     *
-     * Each element in the array is a call to `write/writeln/reWrite`
-     * Each element in the child array is a line to be written
-     *
-     * @param string[][] $expected Set of regular expressions to match against
-     * @param string[][] $actual   The actual output
-     */
-    private function compareOutputs(array $expected, array $actual)
-    {
-        $this->assertSameSize($expected, $actual);
-
-        for ($i = 0; $i < count($expected); $i++) {
-            $this->assertSameSize($expected[$i], $actual[$i]);
-            for ($j = 0; $j < count($expected[$i]); $j++) {
-                $this->assertRegExp($expected[$i][$j], $actual[$i][$j], sprintf('group: %d, line: %d', $i + 1, $j + 1));
-            }
-        }
     }
 
     /**

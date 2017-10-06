@@ -93,7 +93,11 @@ class Table
         $info = [];
         foreach ($data as $key => $value) {
             $length = isset($this->maxLengths[$key]) ? '-' . $this->maxLengths[$key] : '';
-            $info[] = sprintf("<info>%s</info>: %{$length}s", $key, $value);
+            if (is_int($key)) {
+                $info[] = sprintf("%{$length}s", $value);
+            } else {
+                $info[] = sprintf("<info>%s</info>: %{$length}s", $key, $value);
+            }
         }
         $extra = $extra ? '  ' . $this->terminal->filter($extra) : '';
         return sprintf("%s (<comment>%6.2fs</comment>) %s%s", implode(' ', $info), $duration, $status, $extra);
@@ -126,7 +130,7 @@ class Table
             $onProgress = null;
         }
 
-        $this->processPool->add(new Run(
+        $run = new Run(
             $process,
             function ($process, $duration, $last) use ($index, $data) {
                 $this->rows[$index] = $this->formatRow($data, "<info>✓</info>", $duration, $last);
@@ -138,7 +142,9 @@ class Table
                 $this->exceptions[] = new ProcessFailedException($process);
             },
             $onProgress
-        ));
+        );
+        $run->setUpdateOnProcessOutput(false);
+        $this->processPool->add($run);
 
         $this->updateRowKeyLengths($data);
     }

@@ -18,6 +18,8 @@ class Run implements RunInterface
     private $onFailure;
     /** @var callable|null */
     private $onProgress;
+    /** @var callable|null */
+    private $onStart;
     /** @var float */
     private $started;
     /** @var bool */
@@ -26,25 +28,42 @@ class Run implements RunInterface
     private $completed = false;
     /** @var string */
     private $last = '';
+    /** @var string */
+    private $lastType = 'std';
+    /** @var bool */
+    private $updateOnPoll = true;
+    /** @var bool */
+    private $updateOnProcessOutput = true;
 
     /**
      * Run constructor.
      *
      * @param Process       $process
-     * @param callable|null $onSuccess  function (Process $process, float $duration, string $last) : void
-     * @param callable|null $onFailure  function (Process $process, float $duration, string $last) : void
-     * @param callable|null $onProgress function (Process $process, float $duration, string $last) : void
+     * @param callable|null $onSuccess  When the process finishes and is successful
+     *                                  function (Process $process, float $duration, string $last, string $lastType) :
+     *                                  void
+     * @param callable|null $onFailure  When the process finishes and failed
+     *                                  function (Process $process, float $duration, string $last, string $lastType) :
+     *                                  void
+     * @param callable|null $onProgress Called every check period or a message is returned from the process
+     *                                  function (Process $process, float $duration, string $last, string $lastType) :
+     *                                  void
+     * @param callable|null $onStart    When the process starts
+     *                                  function (Process $process, float $duration, string $last, string $lastType) :
+     *                                  void
      */
     public function __construct(
         Process $process,
         callable $onSuccess = null,
         callable $onFailure = null,
-        callable $onProgress = null
+        callable $onProgress = null,
+        callable $onStart = null
     ) {
         $this->process = $process;
         $this->onSuccess = $onSuccess;
         $this->onFailure = $onFailure;
         $this->onProgress = $onProgress;
+        $this->onStart = $onStart;
     }
 
     /**
@@ -55,10 +74,17 @@ class Run implements RunInterface
     public function start()
     {
         if (!$this->process->isRunning()) {
-            $this->process->start(function ($type, $data) {
-                $this->last = rtrim($data);
-            });
             $this->started = microtime(true);
+            $this->update($this->onStart);
+            $this->process->start(
+                function ($type, $data) {
+                    $this->lastType = $type;
+                    $this->last = rtrim($data);
+                    if ($this->updateOnProcessOutput) {
+                        $this->update($this->onProgress);
+                    }
+                }
+            );
             $this->completed = false;
         }
 
@@ -77,7 +103,9 @@ class Run implements RunInterface
         }
 
         if ($this->process->isRunning()) {
-            $this->update($this->onProgress);
+            if ($this->updateOnPoll) {
+                $this->update($this->onProgress);
+            }
             return true;
         }
 
@@ -114,7 +142,8 @@ class Run implements RunInterface
                 $func,
                 $this->process,
                 microtime(true) - $this->started,
-                $this->last
+                $this->last,
+                $this->lastType
             );
         }
     }
@@ -141,5 +170,43 @@ class Run implements RunInterface
     public function getProcess()
     {
         return $this->process;
+    }
+
+    /**
+     * @param bool $updateOnPoll
+     *
+     * @return $this
+     */
+    public function setUpdateOnPoll($updateOnPoll)
+    {
+        $this->updateOnPoll = $updateOnPoll;
+        return $this;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isUpdateOnPoll()
+    {
+        return $this->updateOnPoll;
+    }
+
+    /**
+     * @param bool $updateOnProcessOutput
+     *
+     * @return $this
+     */
+    public function setUpdateOnProcessOutput($updateOnProcessOutput)
+    {
+        $this->updateOnProcessOutput = $updateOnProcessOutput;
+        return $this;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isUpdateOnProcessOutput()
+    {
+        return $this->updateOnProcessOutput;
     }
 }
