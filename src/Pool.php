@@ -36,7 +36,7 @@ class Pool extends Collection implements RunInterface
     /** @var callable|null */
     protected $onProgress;
     /** @var callable|null */
-    private $onStart;
+    protected $onStart;
     /** @var int */
     private $maxSimultaneous = -1;
 
