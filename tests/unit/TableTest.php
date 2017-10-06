@@ -93,7 +93,7 @@ class TableTest extends TestCase
         $this->table->run(0);
 
         $expected = [
-            ['%<info>key</info>: value \(<comment>  0.00s</comment>\) %'],
+            ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) %'],
             ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) ⠋%'],
             ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) ⠙%'],
             ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) ⠹%'],
@@ -133,7 +133,7 @@ class TableTest extends TestCase
         $this->table->run(0);
 
         $expected = [
-            ['%value value2 \(<comment>  0.00s</comment>\) %'],
+            ['%value value2 \(<comment>[ 0-9\.s]+</comment>\) %'],
             ['%value value2 \(<comment>[ 0-9\.s]+</comment>\) ⠋%'],
             ['%value value2 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%'],
         ];
@@ -172,11 +172,11 @@ class TableTest extends TestCase
 
         $expected = [
             [
-                '%<info>key</info>: value \(<comment>  0.00s</comment>\) %',
+                '%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) %',
                 '%waiting...%',
             ],
             [
-                '%<info>key</info>: value \(<comment>  0.00s</comment>\) %',
+                '%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) %',
                 '%<comment>Total</comment>:  1, <comment>Running</comment>:  1, <comment>Waiting</comment>:  0%',
             ],
             [
@@ -261,7 +261,7 @@ class TableTest extends TestCase
                 false,
                 [true],
                 [
-                    ['%<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %'],
+                    ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %'],
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%'],
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%'],
                 ],
@@ -292,12 +292,12 @@ class TableTest extends TestCase
                 [true, true],
                 [
                     [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>  0.00s</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
                     ],
                     [
                         '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>  0.00s</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
                     ],
                     [
                         '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
@@ -319,7 +319,7 @@ class TableTest extends TestCase
                 false,
                 [false],
                 [
-                    ['%<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %'],
+                    ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %'],
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%'],
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <error>x</error>%'],
                     [
@@ -376,12 +376,12 @@ DOC
                 [true, false],
                 [
                     [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>  0.00s</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
                     ],
                     [
                         '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>  0.00s</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
                     ],
                     [
                         '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
@@ -421,7 +421,7 @@ DOC
                 false,
                 [true],
                 [
-                    ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %'],
+                    ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %'],
                     ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]  some text%'],
                     ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>  some text%'],
                 ],
@@ -433,13 +433,13 @@ DOC
                 [true, true],
                 [
                     [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>  0.00s</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
                         '%^$%',
                     ],
                     [
                         '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>  0.00s</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
                         '%<comment>Total</comment>:  2, <comment>Running</comment>:  2, <comment>Waiting</comment>:  0%',
                     ],
                     [

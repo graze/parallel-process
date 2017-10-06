@@ -160,13 +160,14 @@ class Pool extends Collection implements RunInterface
      */
     protected function addProcess(Process $process)
     {
-        return $this->add(new Run(
-                              $process,
-                              $this->onSuccess,
-                              $this->onFailure,
-                              $this->onProgress,
-                              $this->onStart
-                          )
+        return $this->add(
+            new Run(
+                $process,
+                $this->onSuccess,
+                $this->onFailure,
+                $this->onProgress,
+                $this->onStart
+            )
         );
     }
 
@@ -257,9 +258,11 @@ class Pool extends Collection implements RunInterface
     public function poll()
     {
         /** @var Run[] $running */
-        $this->running = array_filter($this->running, function (RunInterface $run) {
-            return $run->poll();
-        }
+        $this->running = array_filter(
+            $this->running,
+            function (RunInterface $run) {
+                return $run->poll();
+            }
         );
 
         $this->checkFinished();

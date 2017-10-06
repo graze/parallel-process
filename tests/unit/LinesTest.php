@@ -101,8 +101,8 @@ class LinesTest extends TestCase
         $this->lines->run(0);
 
         $expected = [
-            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>  0.00s</comment>\) <fg=blue>→ Started</>%'],
-            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>  0.00s</comment>\) \(out\) first line%'],
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <fg=blue>→ Started</>%'],
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) \(out\) first line%'],
             ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) \(out\) second line%'],
             ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) \(out\) third line%'],
             ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) \(err\) error line%'],
@@ -142,8 +142,8 @@ class LinesTest extends TestCase
         $this->lines->run(0);
 
         $expected = [
-            ['%<info>key</info>: value \(<comment>  0.00s</comment>\) <fg=blue>→ Started</>%'],
-            ['%<info>key</info>: value \(<comment>  0.00s</comment>\) \(out\) first line%'],
+            ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) <fg=blue>→ Started</>%'],
+            ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) \(out\) first line%'],
             ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) \(out\) second line%'],
             ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) \(out\) third line%'],
             ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) \(err\) error line%'],
@@ -182,7 +182,7 @@ class LinesTest extends TestCase
         $this->lines->run(0);
 
         $expected = [
-            ['%<options=bold;fg=\w+>value</> \(<comment>  0.00s</comment>\) <fg=blue>→ Started</>%'],
+            ['%<options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <fg=blue>→ Started</>%'],
             ['%<options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) \(out\) first line%'],
             ['%<options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <info>✓ Succeeded</info>%'],
         ];
@@ -228,7 +228,7 @@ class LinesTest extends TestCase
         $this->lines->run(0);
 
         $expected = [
-            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>  0.00s</comment>\) <fg=blue>→ Started</>%'],
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <fg=blue>→ Started</>%'],
             ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) \(out\) first line%'],
             ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <error>x Failed</error> \(code: 3\) some error%'],
             [<<<TEXT
@@ -283,9 +283,48 @@ TEXT
         $this->lines->run(0);
 
         $expected = [
-            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>  0.00s</comment>\) <fg=blue>→ Started</>%'],
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <fg=blue>→ Started</>%'],
             ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) first line%'],
             ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <info>✓ Succeeded</info>%'],
+        ];
+
+        $this->compareOutputs($expected, $this->output->getWritten());
+    }
+
+    public function testShowDurationDoesNotShowTheDuration()
+    {
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('stop');
+        $process->shouldReceive('start')->with(
+            Mockery::on(
+                function ($closure) {
+                    call_user_func($closure, Process::OUT, 'first line');
+                    return true;
+                }
+            )
+        )->once();
+        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isRunning')->andReturn(
+            false, // add
+            false, // start
+            true,  // check
+            true,  // ...
+            true,
+            true,
+            false // complete
+        );
+        $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
+        $process->shouldReceive('getOutput')->andReturn('first line');
+
+        $this->lines->setShowDuration(false);
+        $this->lines->add($process, ['key' => 'value']);
+
+        $this->lines->run(0);
+
+        $expected = [
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> <fg=blue>→ Started</>%'],
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(out\) first line%'],
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> <info>✓ Succeeded</info>%'],
         ];
 
         $this->compareOutputs($expected, $this->output->getWritten());
