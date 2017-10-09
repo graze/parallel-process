@@ -41,7 +41,7 @@ trait TagsTrait
         $info = [];
         foreach ($data as $key => $value) {
             $length = isset($this->maxLengths[$key]) ? '-' . $this->maxLengths[$key] : '';
-            if ($colour) {
+            if (!is_null($colour)) {
                 $valueFormat = sprintf("<options=bold;fg=%s>%{$length}s</>", $colour, $value);
             } else {
                 $valueFormat = sprintf("%{$length}s", $value);
