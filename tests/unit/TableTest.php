@@ -15,7 +15,7 @@ use Symfony\Component\Process\Process;
 class TableTest extends TestCase
 {
     /** @var BufferDiffOutput */
-    private $output;
+    private $bufferOutput;
     /** @var mixed */
     private $pool;
     /** @var Table */
@@ -24,9 +24,9 @@ class TableTest extends TestCase
     public function setUp()
     {
         mb_internal_encoding("UTF-8");
-        $this->output = new BufferDiffOutput();
+        $this->bufferOutput = new BufferDiffOutput();
         $this->pool = Mockery::mock(Pool::class)->makePartial();
-        $this->table = new Table($this->output, $this->pool);
+        $this->table = new Table($this->bufferOutput, $this->pool);
     }
 
     public function testConstructWithNonBufferedOutput()
@@ -64,7 +64,7 @@ class TableTest extends TestCase
     public function testSpinnerLoop()
     {
         $this->table->setShowSummary(false);
-        $this->output->setVerbosity(OutputInterface::VERBOSITY_VERBOSE);
+        $this->bufferOutput->setVerbosity(OutputInterface::VERBOSITY_VERBOSE);
 
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
@@ -93,7 +93,7 @@ class TableTest extends TestCase
         $this->table->run(0);
 
         $expected = [
-            ['%<info>key</info>: value \(<comment>  0.00s</comment>\) %'],
+            ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) %'],
             ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) ⠋%'],
             ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) ⠙%'],
             ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) ⠹%'],
@@ -108,7 +108,88 @@ class TableTest extends TestCase
             ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%'],
         ];
 
-        $this->compareOutputs($expected, $this->output->getWritten());
+        $this->compareOutputs($expected, $this->bufferOutput->getWritten());
+    }
+
+    public function testValueDataArrayDoesNotShowTheKey()
+    {
+        $this->table->setShowSummary(false);
+        $this->bufferOutput->setVerbosity(OutputInterface::VERBOSITY_VERBOSE);
+
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('stop');
+        $process->shouldReceive('start')->once();
+        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isRunning')->andReturn(
+            false, // add
+            false, // start
+            true,  // check
+            false // complete
+        );
+        $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
+
+        $this->table->add($process, ['value', 'value2']);
+
+        $this->table->run(0);
+
+        $expected = [
+            ['%value value2 \(<comment>[ 0-9\.s]+</comment>\) %'],
+            ['%value value2 \(<comment>[ 0-9\.s]+</comment>\) ⠋%'],
+            ['%value value2 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%'],
+        ];
+
+        $this->compareOutputs($expected, $this->bufferOutput->getWritten());
+    }
+
+    public function testSummaryIsWaitingBeforeTheProcessStarts()
+    {
+        $this->bufferOutput->setVerbosity(OutputInterface::VERBOSITY_VERBOSE);
+        $this->table->setShowOutput(true);
+        $this->table->setShowSummary(true);
+
+        $oneFails = false;
+
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('stop');
+        $process->shouldReceive('start')->with(Mockery::on(function ($closure) {
+            call_user_func($closure, Process::OUT, 'some text');
+            return true;
+        }))->once();
+        $process->shouldReceive('isStarted')->andReturn(false, true);
+        $process->shouldReceive('isRunning')->andReturn(false, false, true, false); // add, start, check, check
+        $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
+        $process->shouldReceive('getOutput')->andReturn('some text');
+
+        $this->table->add($process, ['key' => 'value']);
+
+        try {
+            $this->table->run(0);
+        } catch (\Exception $e) {
+            if (!$oneFails || !$e instanceof ProcessFailedException) {
+                throw $e;
+            }
+        }
+
+        $expected = [
+            [
+                '%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) %',
+                '%waiting...%',
+            ],
+            [
+                '%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) %',
+                '%<comment>Total</comment>:  1, <comment>Running</comment>:  1, <comment>Waiting</comment>:  0%',
+            ],
+            [
+                '%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                '%<comment>Total</comment>:  1, <comment>Running</comment>:  1, <comment>Waiting</comment>:  0%',
+            ],
+            [
+                '%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                '%^$%',
+            ],
+        ];
+
+        $this->compareOutputs($expected, $this->bufferOutput->getWritten());
     }
 
     /**
@@ -126,7 +207,7 @@ class TableTest extends TestCase
      */
     public function testOutput($verbosity, $showOutput, $showSummary, array $processStates, array $outputs)
     {
-        $this->output->setVerbosity($verbosity);
+        $this->bufferOutput->setVerbosity($verbosity);
         $this->table->setShowOutput($showOutput);
         $this->table->setShowSummary($showSummary);
 
@@ -165,28 +246,7 @@ class TableTest extends TestCase
             }
         }
 
-        $this->compareOutputs($outputs, $this->output->getWritten());
-    }
-
-    /**
-     * Compare the outputs with an expected input.
-     *
-     * Each element in the array is a call to `write/writeln/reWrite`
-     * Each element in the child array is a line to be written
-     *
-     * @param string[][] $expected Set of regular expressions to match against
-     * @param string[][] $actual   The actual output
-     */
-    private function compareOutputs(array $expected, array $actual)
-    {
-        $this->assertSameSize($expected, $actual);
-
-        for ($i = 0; $i < count($expected); $i++) {
-            $this->assertSameSize($expected[$i], $actual[$i]);
-            for ($j = 0; $j < count($expected[$i]); $j++) {
-                $this->assertRegExp($expected[$i][$j], $actual[$i][$j], sprintf('group: %d, line: %d', $i + 1, $j + 1));
-            }
-        }
+        $this->compareOutputs($outputs, $this->bufferOutput->getWritten());
     }
 
     /**
@@ -201,7 +261,7 @@ class TableTest extends TestCase
                 false,
                 [true],
                 [
-                    ['%<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %'],
+                    ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %'],
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%'],
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%'],
                 ],
@@ -232,12 +292,12 @@ class TableTest extends TestCase
                 [true, true],
                 [
                     [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>  0.00s</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
                     ],
                     [
                         '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>  0.00s</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
                     ],
                     [
                         '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
@@ -259,7 +319,7 @@ class TableTest extends TestCase
                 false,
                 [false],
                 [
-                    ['%<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %'],
+                    ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %'],
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%'],
                     ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <error>x</error>%'],
                     [
@@ -316,12 +376,12 @@ DOC
                 [true, false],
                 [
                     [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>  0.00s</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
                     ],
                     [
                         '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>  0.00s</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
                     ],
                     [
                         '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
@@ -361,7 +421,7 @@ DOC
                 false,
                 [true],
                 [
-                    ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %'],
+                    ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %'],
                     ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]  some text%'],
                     ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>  some text%'],
                 ],
@@ -373,13 +433,13 @@ DOC
                 [true, true],
                 [
                     [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>  0.00s</comment>\) %',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>  0.00s</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
                         '%^$%',
                     ],
                     [
                         '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>  0.00s</comment>\) %',
+                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
                         '%<comment>Total</comment>:  2, <comment>Running</comment>:  2, <comment>Waiting</comment>:  0%',
                     ],
                     [

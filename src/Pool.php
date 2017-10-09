@@ -35,6 +35,8 @@ class Pool extends Collection implements RunInterface
     protected $onFailure;
     /** @var callable|null */
     protected $onProgress;
+    /** @var callable|null */
+    protected $onStart;
     /** @var int */
     private $maxSimultaneous = -1;
 
@@ -44,9 +46,14 @@ class Pool extends Collection implements RunInterface
      * Set the default callbacks here
      *
      * @param RunInterface[]|Process[] $items
-     * @param callable|null            $onSuccess  function (Process $process, float $duration, string $last) : void
-     * @param callable|null            $onFailure  function (Process $process, float $duration, string $last) : void
-     * @param callable|null            $onProgress function (Process $process, float $duration, string $last) : void
+     * @param callable|null            $onSuccess  function (Process $process, float $duration, string $last, string
+     *                                             $lastType) : void
+     * @param callable|null            $onFailure  function (Process $process, float $duration, string $last, string
+     *                                             $lastType) : void
+     * @param callable|null            $onProgress function (Process $process, float $duration, string $last, string
+     *                                             $lastType) : void
+     * @param callable|null            $onStart    function (Process $process, float $duration, string $last, string
+     *                                             $lastType) : void
      * @param int                      $maxSimultaneous
      */
     public function __construct(
@@ -54,6 +61,7 @@ class Pool extends Collection implements RunInterface
         callable $onSuccess = null,
         callable $onFailure = null,
         callable $onProgress = null,
+        callable $onStart = null,
         $maxSimultaneous = self::NO_MAX
     ) {
         parent::__construct($items);
@@ -61,11 +69,13 @@ class Pool extends Collection implements RunInterface
         $this->onSuccess = $onSuccess;
         $this->onFailure = $onFailure;
         $this->onProgress = $onProgress;
+        $this->onStart = $onStart;
         $this->maxSimultaneous = $maxSimultaneous;
     }
 
     /**
-     * @param callable|null $onSuccess function (Process $process, float $duration, string $last) : void
+     * @param callable|null $onSuccess function (Process $process, float $duration, string $last, string $lastType) :
+     *                                 void
      *
      * @return $this
      */
@@ -76,7 +86,8 @@ class Pool extends Collection implements RunInterface
     }
 
     /**
-     * @param callable|null $onFailure function (Process $process, float $duration, string $last) : void
+     * @param callable|null $onFailure function (Process $process, float $duration, string $last, string $lastType) :
+     *                                 void
      *
      * @return $this
      */
@@ -87,13 +98,26 @@ class Pool extends Collection implements RunInterface
     }
 
     /**
-     * @param callable|null $onProgress function (Process $process, float $duration, string $last) : void
+     * @param callable|null $onProgress function (Process $process, float $duration, string $last, string $lastType) :
+     *                                  void
      *
      * @return $this
      */
     public function setOnProgress($onProgress)
     {
         $this->onProgress = $onProgress;
+        return $this;
+    }
+
+    /**
+     * @param callable|null $onStart function (Process $process, float $duration, string $last, string $lastType) :
+     *                               void
+     *
+     * @return $this
+     */
+    public function setOnStart($onStart)
+    {
+        $this->onStart = $onStart;
         return $this;
     }
 
@@ -136,12 +160,15 @@ class Pool extends Collection implements RunInterface
      */
     protected function addProcess(Process $process)
     {
-        return $this->add(new Run(
-            $process,
-            $this->onSuccess,
-            $this->onFailure,
-            $this->onProgress
-        ));
+        return $this->add(
+            new Run(
+                $process,
+                $this->onSuccess,
+                $this->onFailure,
+                $this->onProgress,
+                $this->onStart
+            )
+        );
     }
 
     /**
@@ -231,9 +258,12 @@ class Pool extends Collection implements RunInterface
     public function poll()
     {
         /** @var Run[] $running */
-        $this->running = array_filter($this->running, function (RunInterface $run) {
-            return $run->poll();
-        });
+        $this->running = array_filter(
+            $this->running,
+            function (RunInterface $run) {
+                return $run->poll();
+            }
+        );
 
         $this->checkFinished();
 

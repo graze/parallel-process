@@ -37,6 +37,32 @@ class RunTest extends TestCase
         $this->assertFalse($run->isRunning(), 'should not be running');
         $this->assertFalse($run->hasStarted(), 'should not have started');
         $this->assertFalse($run->isSuccessful(), 'should not be successful');
+        $this->assertTrue($run->isUpdateOnPoll(), 'update on poll should be on by deafult');
+        $this->assertTrue($run->isUpdateOnProcessOutput(), 'update on poll should be on by deafult');
+    }
+
+    public function testUpdateOnPoll()
+    {
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('stop');
+
+        $run = new Run($process);
+
+        $this->assertTrue($run->isUpdateOnPoll());
+        $this->assertSame($run, $run->setUpdateOnPoll(false));
+        $this->assertFalse($run->isUpdateOnPoll());
+    }
+
+    public function testUpdateOnProcessOutput()
+    {
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('stop');
+
+        $run = new Run($process);
+
+        $this->assertTrue($run->isUpdateOnProcessOutput());
+        $this->assertSame($run, $run->setUpdateOnProcessOutput(false));
+        $this->assertFalse($run->isUpdateOnProcessOutput());
     }
 
     public function testProcessRunning()
@@ -91,10 +117,13 @@ class RunTest extends TestCase
 
         $hit = false;
 
-        $run = new Run($process, function ($proc) use ($process, &$hit) {
-            $this->assertSame($proc, $process);
-            $hit = true;
-        });
+        $run = new Run(
+            $process,
+            function ($proc) use ($process, &$hit) {
+                $this->assertSame($proc, $process);
+                $hit = true;
+            }
+        );
 
         $process->shouldReceive('start')->once();
         $process->shouldReceive('isStarted')->andReturn(true);
@@ -112,10 +141,14 @@ class RunTest extends TestCase
 
         $hit = false;
 
-        $run = new Run($process, null, function ($proc) use ($process, &$hit) {
-            $this->assertSame($proc, $process);
-            $hit = true;
-        });
+        $run = new Run(
+            $process,
+            null,
+            function ($proc) use ($process, &$hit) {
+                $this->assertSame($proc, $process);
+                $hit = true;
+            }
+        );
 
         $process->shouldReceive('start')->once();
         $process->shouldReceive('isStarted')->andReturn(true);
@@ -133,10 +166,15 @@ class RunTest extends TestCase
 
         $hit = false;
 
-        $run = new Run($process, null, null, null, function ($proc) use ($process, &$hit) {
-            $this->assertSame($proc, $process);
-            $hit = true;
-        });
+        $run = new Run(
+            $process,
+            null,
+            null,
+            function ($proc) use ($process, &$hit) {
+                $this->assertSame($proc, $process);
+                $hit = true;
+            }
+        );
 
         $process->shouldReceive('start')->once();
         $process->shouldReceive('isStarted')->andReturn(true);
@@ -167,18 +205,87 @@ class RunTest extends TestCase
         $process->shouldReceive('stop');
 
         $process->shouldReceive('start')
-                ->with(Mockery::on(function (callable $fn) {
-                    $this->assertNotNull($fn);
-                    $fn(Process::STDOUT, 'some text');
-                    return true;
-                }))
+                ->with(
+                    Mockery::on(
+                        function (callable $fn) {
+                            $this->assertNotNull($fn);
+                            $fn(Process::OUT, 'some text');
+                            return true;
+                        }
+                    )
+                )
                 ->once();
 
-        $run = new Run($process, function ($proc, $dur, $last) use ($process) {
-            $this->assertSame($process, $proc);
-            $this->assertInternalType('float', $dur);
-            $this->assertEquals('some text', $last);
-        });
+        $run = new Run(
+            $process,
+            function ($proc, $dur, $last, $lastType) use ($process) {
+                $this->assertSame($process, $proc);
+                $this->assertInternalType('float', $dur);
+                $this->assertEquals('some text', $last);
+                $this->assertEquals(Process::OUT, $lastType);
+            }
+        );
+
+        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isRunning')->andReturn(false);
+        $process->shouldReceive('isSuccessful')->once()->andReturn(true);
+
+        $run->start();
+        $this->assertFalse($run->poll());
+    }
+
+    public function testUpdateOnPollOffDoesNotUpdateOnPoll()
+    {
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('stop');
+
+        $process->shouldReceive('start')->once();
+
+        $run = new Run(
+            $process,
+            null,
+            null,
+            function () {
+                $this->fail('onProgress should not be called');
+            }
+        );
+        $run->setUpdateOnPoll(false);
+
+        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isRunning')->andReturn(false, true, false);
+        $process->shouldReceive('isSuccessful')->once()->andReturn(true);
+
+        $run->start();
+        $this->assertTrue($run->poll());
+        $this->assertFalse($run->poll());
+    }
+
+    public function testUpdateOnOutputOffDoesNotCallUpdateOnOutput()
+    {
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('stop');
+
+        $process->shouldReceive('start')
+                ->with(
+                    Mockery::on(
+                        function (callable $fn) {
+                            $this->assertNotNull($fn);
+                            $fn(Process::STDOUT, 'some text');
+                            return true;
+                        }
+                    )
+                )
+                ->once();
+
+        $run = new Run(
+            $process,
+            null,
+            null,
+            function () {
+                $this->fail('onProgress should not be called');
+            }
+        );
+        $run->setUpdateOnProcessOutput(false);
 
         $process->shouldReceive('isStarted')->andReturn(true);
         $process->shouldReceive('isRunning')->andReturn(false);

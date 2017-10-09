@@ -347,4 +347,31 @@ class PoolTest extends TestCase
 
         $this->assertTrue($hit);
     }
+
+    public function testOnStartSetterIsCalledDuringProcessRun()
+    {
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('stop');
+        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isRunning')->andReturn(false, false, true, false);
+        $process->shouldReceive('start')->atLeast()->once();
+        $process->shouldReceive('isSuccessful')->once()->andReturn(false);
+
+        $hit = false;
+
+        $pool = new Pool();
+        $this->assertSame(
+            $pool,
+            $pool->setOnStart(function ($proc) use ($process, &$hit) {
+                $this->assertEquals($proc, $process);
+                $hit = true;
+            })
+        );
+
+        $pool->add($process);
+
+        $pool->run(0);
+
+        $this->assertTrue($hit);
+    }
 }
