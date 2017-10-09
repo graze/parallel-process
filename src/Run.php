@@ -192,13 +192,13 @@ class Run implements RunInterface
     }
 
     /**
-     * @param bool $updateOnProcessOutput
+     * @param bool $update
      *
      * @return $this
      */
-    public function setUpdateOnProcessOutput($updateOnProcessOutput)
+    public function setUpdateOnProcessOutput($update)
     {
-        $this->updateOnProcessOutput = $updateOnProcessOutput;
+        $this->updateOnProcessOutput = $update;
         return $this;
     }
 

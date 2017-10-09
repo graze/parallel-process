@@ -10,14 +10,14 @@ use Symfony\Component\Process\Process;
 
 class Lines
 {
+    use TagsTrait;
+
     /** @var OutputInterface */
     private $output;
     /** @var TerminalInterface */
     private $terminal;
     /** @var Pool */
     private $processPool;
-    /** @var int[] */
-    private $maxLengths = [];
     /** @var bool */
     private $showDuration = true;
     /** @var bool */
@@ -155,26 +155,6 @@ class Lines
     }
 
     /**
-     * Parses the rows to determine the key lengths to make a pretty table
-     *
-     * @param array $data
-     */
-    private function updateRowKeyLengths(array $data = [])
-    {
-        $lengths = array_map('mb_strlen', $data);
-
-        $keys = array_merge(array_keys($lengths), array_keys($this->maxLengths));
-
-        foreach ($keys as $key) {
-            if (!isset($this->maxLengths[$key])
-                || (isset($lengths[$key]) && $lengths[$key] > $this->maxLengths[$key])
-            ) {
-                $this->maxLengths[$key] = $lengths[$key];
-            }
-        }
-    }
-
-    /**
      * @param int    $index
      * @param array  $data
      * @param float  $duration
@@ -184,22 +164,10 @@ class Lines
      */
     private function format($index, array $data, $duration, $message = '')
     {
-        $info = [];
-        foreach ($data as $key => $value) {
-            $length = isset($this->maxLengths[$key]) ? '-' . $this->maxLengths[$key] : '';
-            if ($this->colourProcesses) {
-                $colour = $this->colours[$index % count($this->colours)];
-                $valueFormat = sprintf("<options=bold;fg=%s>%{$length}s</>", $colour, $value);
-            } else {
-                $valueFormat = sprintf("%{$length}s", $value);
-            }
-            if (is_int($key)) {
-                $info[] = $valueFormat;
-            } else {
-                $info[] = sprintf("<info>%s</info>: %s", $key, $valueFormat);
-            }
-        }
-        $output = implode(' ', $info);
+        $output = $this->formatTags(
+            $data,
+            ($this->colourProcesses ? $this->colours[$index % count($this->colours)] : null)
+        );
         if ($this->showDuration) {
             $output .= sprintf(' (<comment>%6.2fs</comment>)', $duration);
         }

@@ -13,7 +13,7 @@ use Symfony\Component\Process\Process;
 class LinesTest extends TestCase
 {
     /** @var BufferDiffOutput */
-    private $output;
+    private $bufferOutput;
     /** @var mixed */
     private $pool;
     /** @var Lines */
@@ -22,9 +22,9 @@ class LinesTest extends TestCase
     public function setUp()
     {
         mb_internal_encoding("UTF-8");
-        $this->output = new BufferDiffOutput();
+        $this->bufferOutput = new BufferDiffOutput();
         $this->pool = Mockery::mock(Pool::class)->makePartial();
-        $this->lines = new Lines($this->output, $this->pool);
+        $this->lines = new Lines($this->bufferOutput, $this->pool);
     }
 
     public function testShowDuration()
@@ -109,7 +109,7 @@ class LinesTest extends TestCase
             ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <info>✓ Succeeded</info>%'],
         ];
 
-        $this->compareOutputs($expected, $this->output->getWritten());
+        $this->compareOutputs($expected, $this->bufferOutput->getWritten());
     }
 
     public function testProcessColoursDisabled()
@@ -150,7 +150,7 @@ class LinesTest extends TestCase
             ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) <info>✓ Succeeded</info>%'],
         ];
 
-        $this->compareOutputs($expected, $this->output->getWritten());
+        $this->compareOutputs($expected, $this->bufferOutput->getWritten());
     }
 
     public function testValueOnlyData()
@@ -187,7 +187,7 @@ class LinesTest extends TestCase
             ['%<options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <info>✓ Succeeded</info>%'],
         ];
 
-        $this->compareOutputs($expected, $this->output->getWritten());
+        $this->compareOutputs($expected, $this->bufferOutput->getWritten());
     }
 
     public function testFailureReturnsErrors()
@@ -249,7 +249,7 @@ TEXT
             ],
         ];
 
-        $this->compareOutputs($expected, $this->output->getWritten());
+        $this->compareOutputs($expected, $this->bufferOutput->getWritten());
     }
 
     public function testShowTypeDoesNotOutputTheStdOrErrInformation()
@@ -288,7 +288,7 @@ TEXT
             ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <info>✓ Succeeded</info>%'],
         ];
 
-        $this->compareOutputs($expected, $this->output->getWritten());
+        $this->compareOutputs($expected, $this->bufferOutput->getWritten());
     }
 
     public function testShowDurationDoesNotShowTheDuration()
@@ -327,6 +327,6 @@ TEXT
             ['%<info>key</info>: <options=bold;fg=\w+>value</> <info>✓ Succeeded</info>%'],
         ];
 
-        $this->compareOutputs($expected, $this->output->getWritten());
+        $this->compareOutputs($expected, $this->bufferOutput->getWritten());
     }
 }

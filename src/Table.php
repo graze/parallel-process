@@ -22,6 +22,8 @@ use Symfony\Component\Process\Process;
 
 class Table
 {
+    use TagsTrait;
+
     const SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
 
     /** @var Pool */
@@ -30,8 +32,6 @@ class Table
     private $rows = [];
     /** @var Exception[] */
     private $exceptions;
-    /** @var int[] */
-    private $maxLengths = [];
     /** @var DiffConsoleOutput */
     private $output;
     /** @var TerminalInterface */
@@ -61,26 +61,6 @@ class Table
     }
 
     /**
-     * Parses the rows to determine the key lengths to make a pretty table
-     *
-     * @param array $data
-     */
-    private function updateRowKeyLengths(array $data = [])
-    {
-        $lengths = array_map('mb_strlen', $data);
-
-        $keys = array_merge(array_keys($lengths), array_keys($this->maxLengths));
-
-        foreach ($keys as $key) {
-            if (!isset($this->maxLengths[$key])
-                || (isset($lengths[$key]) && $lengths[$key] > $this->maxLengths[$key])
-            ) {
-                $this->maxLengths[$key] = $lengths[$key];
-            }
-        }
-    }
-
-    /**
      * @param array  $data
      * @param string $status
      * @param float  $duration
@@ -90,17 +70,9 @@ class Table
      */
     private function formatRow(array $data, $status, $duration, $extra = '')
     {
-        $info = [];
-        foreach ($data as $key => $value) {
-            $length = isset($this->maxLengths[$key]) ? '-' . $this->maxLengths[$key] : '';
-            if (is_int($key)) {
-                $info[] = sprintf("%{$length}s", $value);
-            } else {
-                $info[] = sprintf("<info>%s</info>: %{$length}s", $key, $value);
-            }
-        }
+        $tags = $this->formatTags($data);
         $extra = $extra ? '  ' . $this->terminal->filter($extra) : '';
-        return sprintf("%s (<comment>%6.2fs</comment>) %s%s", implode(' ', $info), $duration, $status, $extra);
+        return sprintf("%s (<comment>%6.2fs</comment>) %s%s", $tags, $duration, $status, $extra);
     }
 
     /**

@@ -15,7 +15,7 @@ use Symfony\Component\Process\Process;
 class TableTest extends TestCase
 {
     /** @var BufferDiffOutput */
-    private $output;
+    private $bufferOutput;
     /** @var mixed */
     private $pool;
     /** @var Table */
@@ -24,9 +24,9 @@ class TableTest extends TestCase
     public function setUp()
     {
         mb_internal_encoding("UTF-8");
-        $this->output = new BufferDiffOutput();
+        $this->bufferOutput = new BufferDiffOutput();
         $this->pool = Mockery::mock(Pool::class)->makePartial();
-        $this->table = new Table($this->output, $this->pool);
+        $this->table = new Table($this->bufferOutput, $this->pool);
     }
 
     public function testConstructWithNonBufferedOutput()
@@ -64,7 +64,7 @@ class TableTest extends TestCase
     public function testSpinnerLoop()
     {
         $this->table->setShowSummary(false);
-        $this->output->setVerbosity(OutputInterface::VERBOSITY_VERBOSE);
+        $this->bufferOutput->setVerbosity(OutputInterface::VERBOSITY_VERBOSE);
 
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
@@ -108,13 +108,13 @@ class TableTest extends TestCase
             ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%'],
         ];
 
-        $this->compareOutputs($expected, $this->output->getWritten());
+        $this->compareOutputs($expected, $this->bufferOutput->getWritten());
     }
 
     public function testValueDataArrayDoesNotShowTheKey()
     {
         $this->table->setShowSummary(false);
-        $this->output->setVerbosity(OutputInterface::VERBOSITY_VERBOSE);
+        $this->bufferOutput->setVerbosity(OutputInterface::VERBOSITY_VERBOSE);
 
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
@@ -138,12 +138,12 @@ class TableTest extends TestCase
             ['%value value2 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%'],
         ];
 
-        $this->compareOutputs($expected, $this->output->getWritten());
+        $this->compareOutputs($expected, $this->bufferOutput->getWritten());
     }
 
     public function testSummaryIsWaitingBeforeTheProcessStarts()
     {
-        $this->output->setVerbosity(OutputInterface::VERBOSITY_VERBOSE);
+        $this->bufferOutput->setVerbosity(OutputInterface::VERBOSITY_VERBOSE);
         $this->table->setShowOutput(true);
         $this->table->setShowSummary(true);
 
@@ -189,7 +189,7 @@ class TableTest extends TestCase
             ],
         ];
 
-        $this->compareOutputs($expected, $this->output->getWritten());
+        $this->compareOutputs($expected, $this->bufferOutput->getWritten());
     }
 
     /**
@@ -207,7 +207,7 @@ class TableTest extends TestCase
      */
     public function testOutput($verbosity, $showOutput, $showSummary, array $processStates, array $outputs)
     {
-        $this->output->setVerbosity($verbosity);
+        $this->bufferOutput->setVerbosity($verbosity);
         $this->table->setShowOutput($showOutput);
         $this->table->setShowSummary($showSummary);
 
@@ -246,7 +246,7 @@ class TableTest extends TestCase
             }
         }
 
-        $this->compareOutputs($outputs, $this->output->getWritten());
+        $this->compareOutputs($outputs, $this->bufferOutput->getWritten());
     }
 
     /**
