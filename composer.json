@@ -22,7 +22,7 @@
     ],
     "require": {
         "php": "^5.5 | ^7.0",
-        "symfony/process": "^2.8 | ^3.2",
+        "symfony/process": "^2.8 | ^3.2 | ^4.0",
         "graze/data-structure": "^2.0",
         "graze/console-diff-renderer": "^0.6.1"
     },
