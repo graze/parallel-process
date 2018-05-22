@@ -85,7 +85,8 @@ class PoolTest extends TestCase
         $nope = Mockery::mock();
         $pool = new Pool();
         $pool->add(/** @scrutinizer ignore-type */
-            $nope);
+            $nope
+        );
     }
 
     public function testPoolInitialStateWithNoRuns()

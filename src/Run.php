@@ -79,8 +79,8 @@ class Run implements RunInterface
             $this->process->start(
                 function ($type, $data) {
                     $this->lastType = $type;
-                    foreach (explode("\n", $data)) {
-                        $this->last = rtrim($data);
+                    foreach (explode("\n", $data) as $line) {
+                        $this->last = rtrim($line);
                         if ($this->updateOnProcessOutput) {
                             $this->update($this->onProgress);
                         }
