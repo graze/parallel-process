@@ -375,6 +375,15 @@ class PoolTest extends TestCase
         $this->assertTrue($hit);
     }
 
+    public function testPoolInstantRunStates()
+    {
+        $pool = new Pool();
+
+        $this->assertFalse($pool->isRunInstantly());
+        $this->assertSame($pool, $pool->setRunInstantly(true));
+        $this->assertTrue($pool->isRunInstantly());
+    }
+
     public function testPoolInitialStateWithInstantRun()
     {
         $run = Mockery::mock(RunInterface::class);
@@ -393,6 +402,7 @@ class PoolTest extends TestCase
         $this->assertTrue($pool->hasStarted());
         $this->assertTrue($pool->isRunning());
         $this->assertTrue($pool->isSuccessful());
+        $this->assertTrue($pool->isRunInstantly());
 
         $pool->poll();
 
