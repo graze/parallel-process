@@ -14,8 +14,12 @@
 
 namespace Graze\ParallelProcess\Test;
 
-class TestCase extends \PHPUnit_Framework_TestCase
+use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
+
+class TestCase extends \PHPUnit\Framework\TestCase
 {
+    use MockeryPHPUnitIntegration;
+
     /**
      * Compare the outputs with an expected input.
      *

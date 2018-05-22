@@ -39,6 +39,8 @@ class Pool extends Collection implements RunInterface
     protected $onStart;
     /** @var int */
     private $maxSimultaneous = -1;
+    /** @var bool */
+    private $runInstantly = false;
 
     /**
      * Pool constructor.
@@ -46,15 +48,17 @@ class Pool extends Collection implements RunInterface
      * Set the default callbacks here
      *
      * @param RunInterface[]|Process[] $items
-     * @param callable|null            $onSuccess  function (Process $process, float $duration, string $last, string
-     *                                             $lastType) : void
-     * @param callable|null            $onFailure  function (Process $process, float $duration, string $last, string
-     *                                             $lastType) : void
-     * @param callable|null            $onProgress function (Process $process, float $duration, string $last, string
-     *                                             $lastType) : void
-     * @param callable|null            $onStart    function (Process $process, float $duration, string $last, string
-     *                                             $lastType) : void
-     * @param int                      $maxSimultaneous
+     * @param callable|null            $onSuccess       function (Process $process, float $duration, string $last,
+     *                                                  string $lastType) : void
+     * @param callable|null            $onFailure       function (Process $process, float $duration, string $last,
+     *                                                  string $lastType) : void
+     * @param callable|null            $onProgress      function (Process $process, float $duration, string $last,
+     *                                                  string $lastType) : void
+     * @param callable|null            $onStart         function (Process $process, float $duration, string $last,
+     *                                                  string $lastType) : void
+     * @param int                      $maxSimultaneous Maximum number of simulatneous processes
+     * @param bool                     $runInstantly    Run any added processes immediately if they are not already
+     *                                                  running
      */
     public function __construct(
         array $items = [],
@@ -62,7 +66,8 @@ class Pool extends Collection implements RunInterface
         callable $onFailure = null,
         callable $onProgress = null,
         callable $onStart = null,
-        $maxSimultaneous = self::NO_MAX
+        $maxSimultaneous = self::NO_MAX,
+        $runInstantly = false
     ) {
         parent::__construct($items);
 
@@ -71,6 +76,11 @@ class Pool extends Collection implements RunInterface
         $this->onProgress = $onProgress;
         $this->onStart = $onStart;
         $this->maxSimultaneous = $maxSimultaneous;
+        $this->runInstantly = $runInstantly;
+
+        if ($this->runInstantly) {
+            $this->start();
+        }
     }
 
     /**
@@ -138,13 +148,13 @@ class Pool extends Collection implements RunInterface
             throw new InvalidArgumentException("add: Can only add `RunInterface` to this collection");
         }
 
-        if (!$this->isRunning() && $item->isRunning()) {
+        if (!($this->isRunning() || $this->runInstantly) && $item->isRunning()) {
             throw new NotRunningException("add: unable to add a running item when the pool has not started");
         }
 
         parent::add($item);
 
-        if ($this->isRunning()) {
+        if ($this->isRunning() || $this->runInstantly) {
             $this->startRun($item);
         }
 
@@ -210,8 +220,8 @@ class Pool extends Collection implements RunInterface
     public function run($checkInterval = self::CHECK_INTERVAL)
     {
         $this->start();
-        $interval = $checkInterval * 1000000;
 
+        $interval = (int) ($checkInterval * 1000000);
         while ($this->poll()) {
             usleep($interval);
         }
@@ -334,6 +344,25 @@ class Pool extends Collection implements RunInterface
     public function setMaxSimultaneous($maxSimultaneous)
     {
         $this->maxSimultaneous = $maxSimultaneous;
+        return $this;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isRunInstantly()
+    {
+        return $this->runInstantly;
+    }
+
+    /**
+     * @param bool $runInstantly
+     *
+     * @return Pool
+     */
+    public function setRunInstantly($runInstantly)
+    {
+        $this->runInstantly = $runInstantly;
         return $this;
     }
 }

@@ -234,6 +234,46 @@ class RunTest extends TestCase
         $this->assertFalse($run->poll());
     }
 
+    public function testLastMessageHavingMultipleLinesReturnsOnePerLine()
+    {
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('stop');
+
+        $process->shouldReceive('start')
+                ->with(
+                    Mockery::on(
+                        function (callable $fn) {
+                            $this->assertNotNull($fn);
+                            $fn(Process::OUT, "line 1\n\nline 2");
+                            return true;
+                        }
+                    )
+                )
+                ->once();
+
+        $hits = 0;
+        $run = new Run(
+            $process,
+            null,
+            null,
+            function ($proc, $dur, $last, $lastType) use ($process, &$hits) {
+                $this->assertSame($process, $proc);
+                $this->assertInternalType('float', $dur);
+                $this->assertContains($last, ['line 1', 'line 2']);
+                $this->assertEquals(Process::OUT, $lastType);
+                $hits++;
+            }
+        );
+
+        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isRunning')->andReturn(false);
+        $process->shouldReceive('isSuccessful')->once()->andReturn(true);
+
+        $run->start();
+        $this->assertFalse($run->poll());
+        $this->assertEquals(2, $hits);
+    }
+
     public function testUpdateOnPollOffDoesNotUpdateOnPoll()
     {
         $process = Mockery::mock(Process::class);
