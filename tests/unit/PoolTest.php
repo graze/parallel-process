@@ -374,4 +374,88 @@ class PoolTest extends TestCase
 
         $this->assertTrue($hit);
     }
+
+    public function testPoolInitialStateWithInstantRun()
+    {
+        $run = Mockery::mock(RunInterface::class);
+        $run->shouldReceive('start');
+        $run->shouldReceive('isRunning')
+            ->andReturn(false);
+        $run->shouldReceive('poll')
+            ->andReturn(false);
+        $run->shouldReceive('hasStarted')
+            ->andReturn(true);
+        $run->shouldReceive('isSuccessful')
+            ->andReturn(true);
+
+        $pool = new Pool([$run], null, null, null, null, Pool::NO_MAX, true);
+
+        $this->assertTrue($pool->hasStarted());
+        $this->assertTrue($pool->isRunning());
+        $this->assertTrue($pool->isSuccessful());
+
+        $pool->poll();
+
+        $this->assertTrue($pool->hasStarted());
+        $this->assertFalse($pool->isRunning());
+        $this->assertTrue($pool->isSuccessful());
+    }
+
+    public function testPoolRunsRunWhenInstantRunIsOn()
+    {
+        $run = Mockery::mock(RunInterface::class);
+        $pool = new Pool();
+        $pool->setRunInstantly(true);
+
+        $run->shouldReceive('start');
+        $run->shouldReceive('isRunning')
+            ->andReturn(false);
+        $run->shouldReceive('poll')
+            ->andReturn(false);
+        $run->shouldReceive('hasStarted')
+            ->andReturn(true);
+        $run->shouldReceive('isSuccessful')
+            ->andReturn(true);
+
+        $pool->add($run);
+
+        $this->assertTrue($pool->hasStarted());
+        $this->assertTrue($pool->isRunning());
+        $this->assertTrue($pool->isSuccessful());
+
+        $pool->poll();
+
+        $this->assertTrue($pool->hasStarted());
+        $this->assertFalse($pool->isRunning());
+        $this->assertTrue($pool->isSuccessful());
+    }
+
+    public function testRunningRunAddingToAnInstantRunProcessCarriesOn()
+    {
+        $run = Mockery::mock(RunInterface::class);
+        $pool = new Pool();
+        $pool->setRunInstantly(true);
+
+        $run->shouldReceive('isRunning')
+            ->andReturn(true);
+        $run->shouldReceive('poll')
+            ->andReturn(false);
+        $run->shouldReceive('hasStarted')
+            ->andReturn(true);
+        $run->shouldReceive('isSuccessful')
+            ->andReturn(true);
+        $run->shouldReceive('start');
+
+        $pool->add($run);
+
+        $this->assertTrue($pool->hasStarted());
+        $this->assertTrue($pool->isRunning());
+        $this->assertTrue($pool->isSuccessful());
+
+        $pool->poll();
+
+        $this->assertTrue($pool->hasStarted());
+        $this->assertFalse($pool->isRunning());
+        $this->assertTrue($pool->isSuccessful());
+    }
 }
