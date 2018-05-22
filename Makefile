@@ -6,7 +6,6 @@ IMAGE := graze/php-alpine:${PHP_VER}-test
 VOLUME := /srv
 DOCKER_RUN_BASE := ${DOCKER} run --rm -t -v $$(pwd):${VOLUME} -w ${VOLUME}
 DOCKER_RUN := ${DOCKER_RUN_BASE} ${IMAGE}
-OS = $(shell uname)
 
 PREFER_LOWEST ?=
 
@@ -60,19 +59,13 @@ test-matrix: ## Run the unit tests against multiple targets.
 	${MAKE} PHP_VER="7.2" build-update test
 
 test-coverage: ## Run all tests and output coverage to the console.
-	${MAKE} test-echo
-	${DOCKER_RUN_BASE} --link python-echo ${IMAGE} phpdbg7 -qrr vendor/bin/phpunit --coverage-text
-	${MAKE} test-echo-stop
+	${DOCKER_RUN_BASE} ${IMAGE} phpdbg7 -qrr vendor/bin/phpunit --coverage-text
 
 test-coverage-html: ## Run all tests and output coverage to html.
-	${MAKE} test-echo
-	${DOCKER_RUN_BASE} --link python-echo ${IMAGE} phpdbg7 -qrr vendor/bin/phpunit --coverage-html=./tests/report/html
-	${MAKE} test-echo-stop
+	${DOCKER_RUN_BASE} ${IMAGE} phpdbg7 -qrr vendor/bin/phpunit --coverage-html=./tests/report/html
 
 test-coverage-clover: ## Run all tests and output clover coverage to file.
-	${MAKE} test-echo
-	${DOCKER_RUN_BASE} --link python-echo ${IMAGE} phpdbg7 -qrr vendor/bin/phpunit --coverage-clover=./tests/report/coverage.clover
-	${MAKE} test-echo-stop
+	${DOCKER_RUN_BASE} ${IMAGE} phpdbg7 -qrr vendor/bin/phpunit --coverage-clover=./tests/report/coverage.clover
 
 # Help
 
@@ -80,4 +73,4 @@ help: ## Show this help message.
 	echo "usage: make [target] ..."
 	echo ""
 	echo "targets:"
-	fgrep --no-filename "##" $(MAKEFILE_LIST) | fgrep --invert-match $$'\t' | sed -e 's/: ## / - /'
+	egrep '^(.+)\:\ ##\ (.+)' ${MAKEFILE_LIST} | column -t -c 2 -s ':#'

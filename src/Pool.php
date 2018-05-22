@@ -224,8 +224,8 @@ class Pool extends Collection implements RunInterface
     public function run($checkInterval = self::CHECK_INTERVAL)
     {
         $this->start();
-        $interval = $checkInterval * 1000000;
 
+        $interval = (int) ($checkInterval * 1000000);
         while ($this->poll()) {
             usleep($interval);
         }
