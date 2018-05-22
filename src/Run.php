@@ -81,7 +81,7 @@ class Run implements RunInterface
                     $this->lastType = $type;
                     foreach (explode("\n", $data) as $line) {
                         $this->last = rtrim($line);
-                        if ($this->updateOnProcessOutput) {
+                        if (mb_strlen($this->last) > 0 && $this->updateOnProcessOutput) {
                             $this->update($this->onProgress);
                         }
                     }

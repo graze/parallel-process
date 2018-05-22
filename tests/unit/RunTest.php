@@ -244,7 +244,7 @@ class RunTest extends TestCase
                     Mockery::on(
                         function (callable $fn) {
                             $this->assertNotNull($fn);
-                            $fn(Process::OUT, "line 1\nline 2");
+                            $fn(Process::OUT, "line 1\n\nline 2");
                             return true;
                         }
                     )
