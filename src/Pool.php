@@ -49,17 +49,13 @@ class Pool extends Collection implements RunInterface
      *
      * @param RunInterface[]|Process[] $items
      * @param callable|null            $onSuccess       function (Process $process, float $duration, string $last,
-     *                                                  string
-     *                                                  $lastType) : void
+     *                                                  string $lastType) : void
      * @param callable|null            $onFailure       function (Process $process, float $duration, string $last,
-     *                                                  string
-     *                                                  $lastType) : void
+     *                                                  string $lastType) : void
      * @param callable|null            $onProgress      function (Process $process, float $duration, string $last,
-     *                                                  string
-     *                                                  $lastType) : void
+     *                                                  string $lastType) : void
      * @param callable|null            $onStart         function (Process $process, float $duration, string $last,
-     *                                                  string
-     *                                                  $lastType) : void
+     *                                                  string $lastType) : void
      * @param int                      $maxSimultaneous Maximum number of simulatneous processes
      * @param bool                     $runInstantly    Run any added processes immediately if they are not already
      *                                                  running
