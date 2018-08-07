@@ -2,6 +2,7 @@
 
 namespace Graze\ParallelProcess\Test\Unit;
 
+use Graze\ParallelProcess\Event\RunEvent;
 use Graze\ParallelProcess\Run;
 use Graze\ParallelProcess\RunInterface;
 use Graze\ParallelProcess\Test\TestCase;
@@ -110,6 +111,31 @@ class RunTest extends TestCase
         $this->assertTrue($run->hasStarted());
     }
 
+    public function testOnStart()
+    {
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('stop');
+
+        $hit = false;
+
+        $run = new Run($process);
+        $run->addListener(
+            RunEvent::STARTED,
+            function (RunEvent $event) use (&$run, &$hit) {
+                $this->assertSame($event->getRun(), $run);
+                $hit = true;
+            }
+        );
+
+        $process->shouldReceive('start')->once();
+        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isRunning')->andReturn(false);
+        $process->shouldReceive('isSuccessful')->once()->andReturn(true);
+
+        $run->start();
+        $this->assertFalse($run->poll());
+    }
+
     public function testOnSuccess()
     {
         $process = Mockery::mock(Process::class);
@@ -117,10 +143,11 @@ class RunTest extends TestCase
 
         $hit = false;
 
-        $run = new Run(
-            $process,
-            function ($proc) use ($process, &$hit) {
-                $this->assertSame($proc, $process);
+        $run = new Run($process);
+        $run->addListener(
+            RunEvent::COMPLETED,
+            function (RunEvent $event) use (&$run, &$hit) {
+                $this->assertSame($event->getRun(), $run);
                 $hit = true;
             }
         );
@@ -141,11 +168,11 @@ class RunTest extends TestCase
 
         $hit = false;
 
-        $run = new Run(
-            $process,
-            null,
-            function ($proc) use ($process, &$hit) {
-                $this->assertSame($proc, $process);
+        $run = new Run($process);
+        $run->addListener(
+            RunEvent::FAILED,
+            function (RunEvent $event) use (&$run, &$hit) {
+                $this->assertSame($event->getRun(), $run);
                 $hit = true;
             }
         );
@@ -166,12 +193,11 @@ class RunTest extends TestCase
 
         $hit = false;
 
-        $run = new Run(
-            $process,
-            null,
-            null,
-            function ($proc) use ($process, &$hit) {
-                $this->assertSame($proc, $process);
+        $run = new Run($process);
+        $run->addListener(
+            RunEvent::UPDATED,
+            function (RunEvent $event) use (&$run, &$hit) {
+                $this->assertSame($event->getRun(), $run);
                 $hit = true;
             }
         );
@@ -216,13 +242,15 @@ class RunTest extends TestCase
                 )
                 ->once();
 
-        $run = new Run(
-            $process,
-            function ($proc, $dur, $last, $lastType) use ($process) {
-                $this->assertSame($process, $proc);
-                $this->assertInternalType('float', $dur);
-                $this->assertEquals('some text', $last);
-                $this->assertEquals(Process::OUT, $lastType);
+        $run = new Run($process);
+        $run->addListener(
+            RunEvent::UPDATED,
+            function (RunEvent $event) use (&$run, &$hits) {
+                $this->assertSame($event->getRun(), $run);
+                $this->assertInternalType('float', $run->getDuration());
+                $this->assertEquals('some text', $run->getLastMessage());
+                $this->assertEquals(Process::OUT, $run->getLastMessageType());
+                $hits++;
             }
         );
 
@@ -252,15 +280,14 @@ class RunTest extends TestCase
                 ->once();
 
         $hits = 0;
-        $run = new Run(
-            $process,
-            null,
-            null,
-            function ($proc, $dur, $last, $lastType) use ($process, &$hits) {
-                $this->assertSame($process, $proc);
-                $this->assertInternalType('float', $dur);
-                $this->assertContains($last, ['line 1', 'line 2']);
-                $this->assertEquals(Process::OUT, $lastType);
+        $run = new Run($process);
+        $run->addListener(
+            RunEvent::UPDATED,
+            function (RunEvent $event) use (&$run, &$hits) {
+                $this->assertSame($event->getRun(), $run);
+                $this->assertInternalType('float', $run->getDuration());
+                $this->assertContains($run->getLastMessage(), ['line 1', 'line 2']);
+                $this->assertEquals(Process::OUT, $run->getLastMessageType());
                 $hits++;
             }
         );
@@ -281,10 +308,9 @@ class RunTest extends TestCase
 
         $process->shouldReceive('start')->once();
 
-        $run = new Run(
-            $process,
-            null,
-            null,
+        $run = new Run($process);
+        $run->addListener(
+            RunEvent::UPDATED,
             function () {
                 $this->fail('onProgress should not be called');
             }
@@ -317,10 +343,9 @@ class RunTest extends TestCase
                 )
                 ->once();
 
-        $run = new Run(
-            $process,
-            null,
-            null,
+        $run = new Run($process);
+        $run->addListener(
+            RunEvent::UPDATED,
             function () {
                 $this->fail('onProgress should not be called');
             }

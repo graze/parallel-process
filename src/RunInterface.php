@@ -42,4 +42,29 @@ interface RunInterface
      * @return bool
      */
     public function poll();
+
+    /**
+     * Get a set of tags associated with this run
+     *
+     * @return array
+     */
+    public function getTags();
+
+    /**
+     * @param string   $name    The name of the event: 'started', 'completed', 'failed', 'updated'
+     * @param callable $handler The handler for the event
+     *
+     * @return void
+     */
+    public function addListener($name, callable $handler);
+
+    /**
+     * @return float number of seconds this run has been running for (0 for not started)
+     */
+    public function getDuration();
+
+    /**
+     * @return float|null the process between 0 and 1 if the run supports it, otherwise null
+     */
+    public function getProgress();
 }

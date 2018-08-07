@@ -4,9 +4,10 @@ namespace Graze\ParallelProcess;
 
 use Graze\DiffRenderer\DiffConsoleOutput;
 use Graze\DiffRenderer\Terminal\TerminalInterface;
+use Graze\ParallelProcess\Event\PoolRunEvent;
+use Graze\ParallelProcess\Event\RunEvent;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Exception\ProcessFailedException;
-use Symfony\Component\Process\Process;
 
 class Lines
 {
@@ -23,9 +24,13 @@ class Lines
     /** @var bool */
     private $showType = true;
     /** @var bool */
+    private $showProgress = true;
+    /** @var bool */
     private $colourProcesses = true;
     /** @var string[] */
     private $colours = ['red', 'green', 'blue', 'yellow', 'magenta', 'white', 'cyan'];
+    /** @var TinyProgressBar|null */
+    private $bar = null;
 
     /**
      * Stream constructor.
@@ -44,6 +49,15 @@ class Lines
         }
         $this->terminal = $this->output->getTerminal();
         $this->processPool = $pool ?: new Pool();
+
+        $this->processPool->addListener(
+            PoolRunEvent::POOL_RUN_ADDED,
+            function (PoolRunEvent $event) {
+                $this->add($event->getRun());
+            }
+        );
+
+        array_map([$this, 'add'], $this->processPool->getAll());
     }
 
     /**
@@ -65,6 +79,25 @@ class Lines
     public function isShowDuration()
     {
         return $this->showDuration;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isShowProgress()
+    {
+        return $this->showProgress;
+    }
+
+    /**
+     * @param bool $showProgress
+     *
+     * @return Lines
+     */
+    public function setShowProgress($showProgress)
+    {
+        $this->showProgress = $showProgress;
+        return $this;
     }
 
     /**
@@ -112,64 +145,99 @@ class Lines
     }
 
     /**
-     * @param Process $process
-     * @param array   $data
+     * @param RunInterface $run
      */
-    public function add(Process $process, array $data = [])
+    public function add(RunInterface $run)
     {
         $index = $this->processPool->count();
-        $onProgress = function (Process $process, $duration, $last, $lastType) use ($index, $data) {
-            $message = ($this->showType ? sprintf('(%s) %s', $lastType, $last) : $last);
-            $this->output->writeln($this->format($index, $data, $duration, $message));
-        };
-
-        $run = new Run(
-            $process,
-            function (Process $process, $duration) use ($index, $data) {
-                $this->output->writeln($this->format($index, $data, $duration, "<info>✓ Succeeded</info>"));
-            },
-            function (Process $process, $duration) use ($index, $data) {
+        $run->addListener(
+            RunEvent::UPDATED,
+            function (RunEvent $event) use ($index) {
+                $run = $event->getRun();
+                $message = '';
+                if ($run instanceof Run) {
+                    $message = ($this->showType && $run instanceof Run)
+                        ? sprintf('(%s) %s', $run->getLastMessageType(), $run->getLastMessage())
+                        : $run->getLastMessage();
+                }
+                $this->output->writeln($this->format($index, $run, $message));
+            }
+        );
+        $run->addListener(
+            RunEvent::STARTED,
+            function (RunEvent $event) use ($index) {
+                $run = $event->getRun();
+                $this->output->writeln(
+                    $this->format($index, $run, "<fg=blue>→ Started</>")
+                );
+            }
+        );
+        $run->addListener(
+            RunEvent::COMPLETED,
+            function (RunEvent $event) use ($index) {
+                $run = $event->getRun();
+                $this->output->writeln(
+                    $this->format($index, $run, "<info>✓ Succeeded</info>")
+                );
+            }
+        );
+        $run->addListener(
+            RunEvent::FAILED,
+            function (RunEvent $event) use ($index) {
+                $run = $event->getRun();
+                $process = null;
+                if ($run instanceof Run) {
+                    $process = $run->getProcess();
+                    $error = sprintf(
+                        "<error>x Failed</error> (code: %d) %s",
+                        $process->getExitCode(),
+                        $process->getExitCodeText()
+                    );
+                } else {
+                    $error = "<error>x Failed</error>";
+                }
                 $this->output->writeln(
                     $this->format(
                         $index,
-                        $data,
-                        $duration,
-                        sprintf(
-                            "<error>x Failed</error> (code: %d) %s",
-                            $process->getExitCode(),
-                            $process->getExitCodeText()
-                        )
+                        $run,
+                        $error
                     )
                 );
-                $this->output->writeln((new ProcessFailedException($process))->getMessage());
-            },
-            $onProgress,
-            function (Process $process, $duration) use ($index, $data) {
-                $this->output->writeln($this->format($index, $data, $duration, "<fg=blue>→ Started</>"));
+                if ($process) {
+                    $this->output->writeln((new ProcessFailedException($process))->getMessage());
+                }
             }
         );
-        $run->setUpdateOnPoll(false);
-        $this->processPool->add($run);
 
-        $this->updateRowKeyLengths($data);
+        if ($run instanceof Run) {
+            $run->setUpdateOnPoll(false);
+        }
+        $this->updateRowKeyLengths($run->getTags());
     }
 
     /**
-     * @param int    $index
-     * @param array  $data
-     * @param float  $duration
-     * @param string $message
+     * @param int          $index
+     * @param RunInterface $run
+     * @param string       $message
      *
      * @return string
      */
-    private function format($index, array $data, $duration, $message = '')
+    private function format($index, RunInterface $run, $message = '')
     {
         $output = $this->formatTags(
-            $data,
+            $run->getTags(),
             ($this->colourProcesses ? $this->colours[$index % count($this->colours)] : null)
         );
         if ($this->showDuration) {
-            $output .= sprintf(' (<comment>%6.2fs</comment>)', $duration);
+            $output .= sprintf(' (<comment>%6.2fs</comment>)', $run->getDuration());
+        }
+        $progress = $run->getProgress();
+        if ($this->showProgress && !is_null($progress)) {
+            if (is_null($this->bar)) {
+                $this->bar = new TinyProgressBar(2, TinyProgressBar::FORMAT_SHORT, 1);
+            }
+            $output .= $this->bar->setPosition($progress)
+                                 ->render();
         }
 
         return sprintf("%s %s", $output, $this->terminal->filter($message));

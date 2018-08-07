@@ -16,9 +16,10 @@ namespace Graze\ParallelProcess;
 use Exception;
 use Graze\DiffRenderer\DiffConsoleOutput;
 use Graze\DiffRenderer\Terminal\TerminalInterface;
+use Graze\ParallelProcess\Event\PoolRunEvent;
+use Graze\ParallelProcess\Event\RunEvent;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Exception\ProcessFailedException;
-use Symfony\Component\Process\Process;
 
 class Table
 {
@@ -58,67 +59,84 @@ class Table
         }
         $this->terminal = $this->output->getTerminal();
         $this->exceptions = [];
+
+        $this->processPool->addListener(
+            PoolRunEvent::POOL_RUN_ADDED,
+            function (PoolRunEvent $event) {
+                $this->add($event->getRun());
+            }
+        );
+
+        array_map([$this, 'add'], $this->processPool->getAll());
     }
 
     /**
-     * @param array  $data
-     * @param string $status
-     * @param float  $duration
-     * @param string $extra
+     * @param RunInterface $run
+     * @param string       $status
      *
      * @return string
      */
-    private function formatRow(array $data, $status, $duration, $extra = '')
+    private function formatRow(RunInterface $run, $status)
     {
-        $tags = $this->formatTags($data);
-        $extra = $extra ? '  ' . $this->terminal->filter($extra) : '';
-        return sprintf("%s (<comment>%6.2fs</comment>) %s%s", $tags, $duration, $status, $extra);
+        $tags = $this->formatTags($run->getTags());
+        $extra = ($this->showOutput && $run instanceof Run && $run->getLastMessage())
+            ? '  ' . $this->terminal->filter($run->getLastMessage())
+            : '';
+        return sprintf("%s (<comment>%6.2fs</comment>) %s%s", $tags, $run->getDuration(), $status, $extra);
     }
 
     /**
-     * @param Process $process
-     * @param array   $data
+     * @param RunInterface $run
      */
-    public function add(Process $process, array $data = [])
+    public function add(RunInterface $run)
     {
         $index = count($this->rows);
-        $this->rows[$index] = $this->formatRow($data, '', 0);
+        $this->rows[$index] = $this->formatRow($run, '');
         $spinner = 0;
+        $bar = new TinyProgressBar(2, TinyProgressBar::FORMAT_BAR_ONLY, 1);
 
         if ($this->output->getVerbosity() >= OutputInterface::VERBOSITY_VERBOSE) {
-            $onProgress = function ($process, $duration, $last) use ($index, $data, &$spinner) {
-                $this->rows[$index] = $this->formatRow(
-                    $data,
-                    mb_substr(static::SPINNER, $spinner++, 1),
-                    $duration,
-                    ($this->showOutput ? $last : '')
-                );
-                if ($spinner > mb_strlen(static::SPINNER) - 1) {
-                    $spinner = 0;
+            $run->addListener(
+                RunEvent::UPDATED,
+                function (RunEvent $event) use ($index, &$spinner, $bar) {
+                    $run = $event->getRun();
+                    $status = (!is_null($run->getProgress()))
+                        ? $bar->setPosition($run->getProgress())->render()
+                        : mb_substr(static::SPINNER, $spinner++, 1);
+                    $this->rows[$index] = $this->formatRow(
+                        $run,
+                        $status
+                    );
+                    if ($spinner > mb_strlen(static::SPINNER) - 1) {
+                        $spinner = 0;
+                    }
+                    $this->render();
                 }
-                $this->render();
-            };
-        } else {
-            $onProgress = null;
+            );
         }
 
-        $run = new Run(
-            $process,
-            function ($process, $duration, $last) use ($index, $data) {
-                $this->rows[$index] = $this->formatRow($data, "<info>✓</info>", $duration, $last);
+        $run->addListener(
+            RunEvent::COMPLETED,
+            function (RunEvent $event) use ($index, &$bar, &$spinner) {
+                $this->rows[$index] = $this->formatRow($event->getRun(), "<info>✓</info>");
                 $this->render($index);
-            },
-            function ($process, $duration, $last) use ($index, $data) {
-                $this->rows[$index] = $this->formatRow($data, "<error>x</error>", $duration, $last);
-                $this->render($index);
-                $this->exceptions[] = new ProcessFailedException($process);
-            },
-            $onProgress
+            }
         );
-        $run->setUpdateOnProcessOutput(false);
-        $this->processPool->add($run);
-
-        $this->updateRowKeyLengths($data);
+        $run->addListener(
+            RunEvent::FAILED,
+            function (RunEvent $event) use ($index, &$bar, &$spinner) {
+                $run = $event->getRun();
+                $this->rows[$index] = $this->formatRow($run, "<error>x</error>");
+                $this->render($index);
+                if ($run instanceof Run) {
+                    $this->exceptions[] = new ProcessFailedException($run->getProcess());
+                }
+            }
+        );
+        if ($run instanceof Run) {
+            $run->setUpdateOnProcessOutput(false);
+        }
+        $this->updateRowKeyLengths($run->getTags());
     }
 
     /**

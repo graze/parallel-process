@@ -1,56 +1,57 @@
 {
-    "name": "graze/parallel-process",
-    "description": "run a pool of processes simultaneously",
-    "keywords": [
-        "graze",
-        "parallel-process"
-    ],
-    "homepage": "https://github.com/graze/parallel-process",
-    "license": "MIT",
-    "authors": [
-        {
-            "name": "Harry Bragg",
-            "email": "harry.bragg@graze.com",
-            "role": "Developer"
-        },
-        {
-            "name": "Graze Developers",
-            "email": "developers@graze.com",
-            "homepage": "http://www.graze.com",
-            "role": "Development Team"
-        }
-    ],
-    "require": {
-        "php": "^5.5 | ^7.0",
-        "symfony/process": "^2.8 | ^3.2 | ^4.0",
-        "graze/data-structure": "^2.0",
-        "graze/console-diff-renderer": "^0.6.1"
+  "name": "graze/parallel-process",
+  "description": "run a pool of processes simultaneously",
+  "keywords": [
+    "graze",
+    "parallel-process"
+  ],
+  "homepage": "https://github.com/graze/parallel-process",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Harry Bragg",
+      "email": "harry.bragg@graze.com",
+      "role": "Developer"
     },
-    "require-dev": {
-        "mockery/mockery": "^1.0",
-        "phpunit/phpunit": "^5.7.21|^6|^7",
-        "squizlabs/php_codesniffer": "^3",
-        "graze/standards": "^2",
-        "symfony/console": "^3.1 | ^4"
-    },
-    "suggest": {
-        "symfony/console": "To use the Table to print current runs"
-    },
-    "autoload": {
-        "psr-4": {
-            "Graze\\ParallelProcess\\": "src"
-        }
-    },
-    "autoload-dev": {
-        "psr-4": {
-            "Graze\\ParallelProcess\\Test\\": "tests/src",
-            "Graze\\ParallelProcess\\Test\\Unit\\": "tests/unit",
-            "Graze\\ParallelProcess\\Test\\Integration\\": "tests/integration"
-        }
-    },
-    "config": {
-        "platform": {
-            "php": "7.2"
-        }
+    {
+      "name": "Graze Developers",
+      "email": "developers@graze.com",
+      "homepage": "http://www.graze.com",
+      "role": "Development Team"
     }
+  ],
+  "require": {
+    "php": "^5.5 | ^7.0",
+    "symfony/process": "^2.8 | ^3.2 | ^4.0",
+    "graze/data-structure": "^2.0",
+    "graze/console-diff-renderer": "^0.6.1",
+    "symfony/event-dispatcher": "^2.8 | ^3.2 | ^4.0"
+  },
+  "require-dev": {
+    "mockery/mockery": "^1.0",
+    "phpunit/phpunit": "^5.7.21|^6|^7",
+    "squizlabs/php_codesniffer": "^3",
+    "graze/standards": "^2",
+    "symfony/console": "^3.1 | ^4"
+  },
+  "suggest": {
+    "symfony/console": "To use the Table to print current runs"
+  },
+  "autoload": {
+    "psr-4": {
+      "Graze\\ParallelProcess\\": "src"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Graze\\ParallelProcess\\Test\\": "tests/src",
+      "Graze\\ParallelProcess\\Test\\Unit\\": "tests/unit",
+      "Graze\\ParallelProcess\\Test\\Integration\\": "tests/integration"
+    }
+  },
+  "config": {
+    "platform": {
+      "php": "7.2"
+    }
+  }
 }

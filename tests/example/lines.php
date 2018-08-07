@@ -23,9 +23,9 @@ $output = new ConsoleOutput(ConsoleOutput::VERBOSITY_VERY_VERBOSE);
 
 $pool = new \Graze\ParallelProcess\Pool();
 $pool->setMaxSimultaneous(3);
-$lines = new Lines($output, $pool);
 for ($i = 0; $i < 5; $i++) {
     $time = $i + 5;
-    $lines->add(new Process(sprintf('for i in `seq 1 %d` ; do date ; sleep 1 ; done', $time)), ['sleep' . $time]);
+    $pool->add(new Process(sprintf('for i in `seq 1 %d` ; do date ; sleep 1 ; done', $time)), ['sleep' . $time]);
 }
+$lines = new Lines($output, $pool);
 $lines->run();

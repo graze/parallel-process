@@ -97,7 +97,7 @@ class PoolMaxSimultaneousTest extends TestCase
 
     public function testAddingTooManyProcessesPutsThemOnTheWaitingList()
     {
-        $pool = new Pool([], null, null, null, null, 1);
+        $pool = new Pool([], 1);
         $this->assertEquals(1, $pool->getMaxSimultaneous());
 
         $pool->add($this->process);

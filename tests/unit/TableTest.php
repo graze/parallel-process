@@ -88,7 +88,7 @@ class TableTest extends TestCase
         );
         $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
 
-        $this->table->add($process, ['key' => 'value']);
+        $this->pool->add($process, ['key' => 'value']);
 
         $this->table->run(0);
 
@@ -128,7 +128,7 @@ class TableTest extends TestCase
         );
         $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
 
-        $this->table->add($process, ['value', 'value2']);
+        $this->pool->add($process, ['value', 'value2']);
 
         $this->table->run(0);
 
@@ -160,7 +160,7 @@ class TableTest extends TestCase
         $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
         $process->shouldReceive('getOutput')->andReturn('some text');
 
-        $this->table->add($process, ['key' => 'value']);
+        $this->pool->add($process, ['key' => 'value']);
 
         try {
             $this->table->run(0);
@@ -235,7 +235,7 @@ class TableTest extends TestCase
                 $oneFails = true;
             }
 
-            $this->table->add($process, ['key' => 'value', 'run' => $i]);
+            $this->pool->add($process, ['key' => 'value', 'run' => $i]);
         }
 
         try {
