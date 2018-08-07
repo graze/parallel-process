@@ -244,7 +244,11 @@ class Pool extends Collection implements RunInterface
 
         if (!$this->isRunning()) {
             $this->finishedTime = microtime(true);
-            $this->dispatch(RunEvent::COMPLETED, new RunEvent($this));
+            if ($this->isSuccessful()) {
+                $this->dispatch(RunEvent::COMPLETED, new RunEvent($this));
+            } else {
+                $this->dispatch(RunEvent::FAILED, new RunEvent($this));
+            }
             return false;
         }
 
@@ -371,13 +375,10 @@ class Pool extends Collection implements RunInterface
     }
 
     /**
-     * @return float|null the process between 0 and 1 if the run supports it, otherwise null
+     * @return float[]|null an array of values of the current position, max, and percentage. null if not applicable
      */
     public function getProgress()
     {
-        if (count($this->items) === 0) {
-            return 0;
-        }
-        return count($this->finished) / count($this->items);
+        return [count($this->finished), count($this->items), count($this->finished) / count($this->items)];
     }
 }

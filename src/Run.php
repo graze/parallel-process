@@ -203,9 +203,17 @@ class Run implements RunInterface
     }
 
     /**
-     * @return float|null the process between 0 and 1 if the run supports it, otherwise null
+     * @return float[]|null the process between 0 and 1 if the run supports it, otherwise null
      */
     public function getProgress()
+    {
+        return null;
+    }
+
+    /**
+     * @return array|null
+     */
+    public function getProgressPosition()
     {
         return null;
     }

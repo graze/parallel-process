@@ -362,7 +362,7 @@ TEXT
         $run = Mockery::mock(Run::class, [$process, ['key' => 'value']])->makePartial();
         $run->allows()
             ->getProgress()
-            ->andReturns(0, 0.5, 1);
+            ->andReturns([0, 100, 0], [50, 100, 0.5], [100, 100, 1]);
 
         $this->lines->setShowProgress(true);
         $this->pool->add($run);

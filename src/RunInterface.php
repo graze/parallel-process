@@ -64,7 +64,7 @@ interface RunInterface
     public function getDuration();
 
     /**
-     * @return float|null the process between 0 and 1 if the run supports it, otherwise null
+     * @return float[]|null an array of values of the current position, max, and percentage. null if not applicable
      */
     public function getProgress();
 }

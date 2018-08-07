@@ -236,7 +236,9 @@ class Lines
             if (is_null($this->bar)) {
                 $this->bar = new TinyProgressBar(2, TinyProgressBar::FORMAT_SHORT, 1);
             }
-            $output .= $this->bar->setPosition($progress)
+            $output .= $this->bar->setPosition($progress[2])
+                                 ->setPosition($progress[0])
+                                 ->setMax($progress[1])
                                  ->render();
         }
 

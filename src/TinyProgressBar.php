@@ -18,10 +18,10 @@ class TinyProgressBar
      * Example formats:
      *  - `{bar} {position}/{max} {perc}`
      */
-    const FORMAT_DEFAULT = '|<comment>{bar}</comment>| <fg=black;bg=cyan>{perc}</> {position}/{max}';
-    const FORMAT_SHORT = '|<comment>{bar}</comment>| <fg=black;bg=cyan>{perc}</>';
+    const FORMAT_DEFAULT = '|<comment>{bar}</comment>| <info>{perc}</info> {position}/{max}';
+    const FORMAT_SHORT = '|<comment>{bar}</comment>| <info>{perc}</info>';
     const FORMAT_BAR_ONLY = '{bar}';
-    const FORMAT_COLOUR_BAR_ONLY = '<fg=black;bg=cyan>{bar}</>';
+    const FORMAT_COLOUR_BAR_ONLY = '<comment>{bar}</comment>';
 
     /** @var int */
     private $length;
