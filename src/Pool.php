@@ -186,7 +186,9 @@ class Pool extends Collection implements RunInterface
         $this->start();
 
         $interval = (int) ($checkInterval * 1000000);
+        var_dump('polling');
         while ($this->poll()) {
+            var_dump('updated');
             $this->dispatch(RunEvent::UPDATED, new RunEvent($this));
             usleep($interval);
         }
