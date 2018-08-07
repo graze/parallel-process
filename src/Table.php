@@ -100,8 +100,9 @@ class Table
                 RunEvent::UPDATED,
                 function (RunEvent $event) use ($index, &$spinner, $bar) {
                     $run = $event->getRun();
-                    $status = (!is_null($run->getProgress()))
-                        ? $bar->setPosition($run->getProgress())->render()
+                    $progress = $run->getProgress();
+                    $status = (!is_null($progress))
+                        ? $bar->setPosition($progress)->render()
                         : mb_substr(static::SPINNER, $spinner++, 1);
                     $this->rows[$index] = $this->formatRow(
                         $run,

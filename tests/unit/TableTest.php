@@ -3,6 +3,7 @@
 namespace Graze\ParallelProcess\Test\Unit;
 
 use Graze\ParallelProcess\Pool;
+use Graze\ParallelProcess\Run;
 use Graze\ParallelProcess\Table;
 use Graze\ParallelProcess\Test\BufferDiffOutput;
 use Graze\ParallelProcess\Test\TestCase;
@@ -106,6 +107,126 @@ class TableTest extends TestCase
             ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) ⠏%'],
             ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) ⠋%'],
             ['%<info>key</info>: value \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%'],
+        ];
+
+        $this->compareOutputs($expected, $this->bufferOutput->getWritten());
+    }
+
+    public function testProgressBar()
+    {
+        $this->table->setShowSummary(false);
+        $this->bufferOutput->setVerbosity(OutputInterface::VERBOSITY_VERBOSE);
+
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('stop');
+        $process->shouldReceive('start')->once();
+        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isRunning')->andReturn(
+            false, // add
+            false, // start
+            true,  // check
+            true,  // ...
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            false // complete
+        );
+        $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
+
+        $run = Mockery::mock(Run::class, [$process, ['key' => 'value']])->makePartial();
+        $this->pool->add($run);
+
+        $run->allows()
+            ->getProgress()
+            ->andReturns(
+                0,
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.25,
+                0.3,
+                0.35,
+                0.4,
+                0.45,
+                0.5,
+                0.55,
+                0.6,
+                0.65,
+                0.7,
+                0.75,
+                0.8,
+                0.85,
+                0.9,
+                0.95,
+                1
+            );
+        $run->allows()
+            ->getDuration()
+            ->andReturns(
+                0,
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.25,
+                0.3,
+                0.35,
+                0.4,
+                0.45,
+                0.5,
+                0.55,
+                0.6,
+                0.65,
+                0.7,
+                0.75,
+                0.8,
+                0.85,
+                0.9,
+                0.95,
+                1
+            );
+
+        $this->table->run(0);
+
+        $expected = [
+            ['%<info>key</info>: value \(<comment>  0.00s</comment>\) %'],
+            ['%<info>key</info>: value \(<comment>  0.00s</comment>\)   %'],
+            ['%<info>key</info>: value \(<comment>  0.05s</comment>\) ▏ %'],
+            ['%<info>key</info>: value \(<comment>  0.10s</comment>\) ▎ %'],
+            ['%<info>key</info>: value \(<comment>  0.15s</comment>\) ▍ %'],
+            ['%<info>key</info>: value \(<comment>  0.20s</comment>\) ▍ %'],
+            ['%<info>key</info>: value \(<comment>  0.25s</comment>\) ▌ %'],
+            ['%<info>key</info>: value \(<comment>  0.30s</comment>\) ▋ %'],
+            ['%<info>key</info>: value \(<comment>  0.35s</comment>\) ▋ %'],
+            ['%<info>key</info>: value \(<comment>  0.40s</comment>\) ▊ %'],
+            ['%<info>key</info>: value \(<comment>  0.45s</comment>\) ▉ %'],
+            ['%<info>key</info>: value \(<comment>  0.50s</comment>\) █ %'],
+            ['%<info>key</info>: value \(<comment>  0.55s</comment>\) █▏%'],
+            ['%<info>key</info>: value \(<comment>  0.60s</comment>\) █▎%'],
+            ['%<info>key</info>: value \(<comment>  0.65s</comment>\) █▍%'],
+            ['%<info>key</info>: value \(<comment>  0.70s</comment>\) █▍%'],
+            ['%<info>key</info>: value \(<comment>  0.75s</comment>\) █▌%'],
+            ['%<info>key</info>: value \(<comment>  0.80s</comment>\) █▋%'],
+            ['%<info>key</info>: value \(<comment>  0.85s</comment>\) █▋%'],
+            ['%<info>key</info>: value \(<comment>  0.90s</comment>\) █▊%'],
+            ['%<info>key</info>: value \(<comment>  0.95s</comment>\) █▉%'],
+            ['%<info>key</info>: value \(<comment>  1.00s</comment>\) <info>✓</info>%'],
         ];
 
         $this->compareOutputs($expected, $this->bufferOutput->getWritten());
@@ -256,24 +377,24 @@ class TableTest extends TestCase
     {
         return [
             [ // verbose with single valid run
-                OutputInterface::VERBOSITY_VERBOSE,
-                false,
-                false,
-                [true],
-                [
-                    ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %'],
-                    ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%'],
-                    ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%'],
-                ],
+              OutputInterface::VERBOSITY_VERBOSE,
+              false,
+              false,
+              [true],
+              [
+                  ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %'],
+                  ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%'],
+                  ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%'],
+              ],
             ],
             [ // normal verbosity only writes a single line
-                OutputInterface::VERBOSITY_NORMAL,
-                false,
-                false,
-                [true],
-                [
-                    ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%'],
-                ],
+              OutputInterface::VERBOSITY_NORMAL,
+              false,
+              false,
+              [true],
+              [
+                  ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%'],
+              ],
             ],
             [
                 OutputInterface::VERBOSITY_NORMAL,
@@ -286,44 +407,44 @@ class TableTest extends TestCase
                 ],
             ],
             [ // multiple runs with verbosity will update each item one at a time
-                OutputInterface::VERBOSITY_VERBOSE,
-                false,
-                false,
-                [true, true],
-                [
-                    [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
-                    ],
-                    [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
-                    ],
-                    [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
-                    ],
-                    [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
-                    ],
-                    [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
-                    ],
-                ],
+              OutputInterface::VERBOSITY_VERBOSE,
+              false,
+              false,
+              [true, true],
+              [
+                  [
+                      '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %',
+                      '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
+                  ],
+                  [
+                      '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
+                      '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
+                  ],
+                  [
+                      '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
+                      '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
+                  ],
+                  [
+                      '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                      '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
+                  ],
+                  [
+                      '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                      '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                  ],
+              ],
             ],
             [ // errors will display an error
-                OutputInterface::VERBOSITY_VERBOSE,
-                false,
-                false,
-                [false],
-                [
-                    ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %'],
-                    ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%'],
-                    ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <error>x</error>%'],
-                    [
-                        <<<DOC
+              OutputInterface::VERBOSITY_VERBOSE,
+              false,
+              false,
+              [false],
+              [
+                  ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %'],
+                  ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%'],
+                  ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <error>x</error>%'],
+                  [
+                      <<<DOC
 %The command "test" failed.
 
 Exit Code: 1\(failed\)
@@ -338,19 +459,19 @@ Error Output:
 ================
 some error text%
 DOC
-                        ,
-                    ],
-                ],
+                      ,
+                  ],
+              ],
             ],
             [ // errors will display an error
-                OutputInterface::VERBOSITY_NORMAL,
-                false,
-                false,
-                [false],
-                [
-                    ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <error>x</error>%'],
-                    [
-                        <<<DOC
+              OutputInterface::VERBOSITY_NORMAL,
+              false,
+              false,
+              [false],
+              [
+                  ['%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <error>x</error>%'],
+                  [
+                      <<<DOC
 %The command "test" failed.
 
 Exit Code: 1\(failed\)
@@ -365,38 +486,38 @@ Error Output:
 ================
 some error text%
 DOC
-                        ,
-                    ],
-                ],
+                      ,
+                  ],
+              ],
             ],
             [ // multiple runs with verbosity will update each item one at a time
-                OutputInterface::VERBOSITY_VERBOSE,
-                false,
-                false,
-                [true, false],
-                [
-                    [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
-                    ],
-                    [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
-                    ],
-                    [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
-                    ],
-                    [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
-                    ],
-                    [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) <error>x</error>%',
-                    ],
-                    [
-                        <<<DOC
+              OutputInterface::VERBOSITY_VERBOSE,
+              false,
+              false,
+              [true, false],
+              [
+                  [
+                      '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %',
+                      '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
+                  ],
+                  [
+                      '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
+                      '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
+                  ],
+                  [
+                      '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
+                      '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
+                  ],
+                  [
+                      '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                      '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
+                  ],
+                  [
+                      '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                      '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) <error>x</error>%',
+                  ],
+                  [
+                      <<<DOC
 %The command "test" failed.
 
 Exit Code: 1\(failed\)
@@ -411,58 +532,58 @@ Error Output:
 ================
 some error text%
 DOC
-                        ,
-                    ],
-                ],
+                      ,
+                  ],
+              ],
             ],
             [ // include output
-                OutputInterface::VERBOSITY_VERBOSE,
-                true,
-                false,
-                [true],
-                [
-                    ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %'],
-                    ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]  some text%'],
-                    ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>  some text%'],
-                ],
+              OutputInterface::VERBOSITY_VERBOSE,
+              true,
+              false,
+              [true],
+              [
+                  ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %'],
+                  ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]  some text%'],
+                  ['%(*UTF8)<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>  some text%'],
+              ],
             ],
             [ // include a summary
-                OutputInterface::VERBOSITY_VERBOSE,
-                false,
-                true,
-                [true, true],
-                [
-                    [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
-                        '%^$%',
-                    ],
-                    [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
-                        '%<comment>Total</comment>:  2, <comment>Running</comment>:  2, <comment>Waiting</comment>:  0%',
-                    ],
-                    [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
-                        '%<comment>Total</comment>:  2, <comment>Running</comment>:  2, <comment>Waiting</comment>:  0%',
-                    ],
-                    [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
-                        '%<comment>Total</comment>:  2, <comment>Running</comment>:  2, <comment>Waiting</comment>:  0%',
-                    ],
-                    [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
-                        '%<comment>Total</comment>:  2, <comment>Running</comment>:  2, <comment>Waiting</comment>:  0%',
-                    ],
-                    [
-                        '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
-                        '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
-                        '%^$%',
-                    ],
-                ],
+              OutputInterface::VERBOSITY_VERBOSE,
+              false,
+              true,
+              [true, true],
+              [
+                  [
+                      '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %',
+                      '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
+                      '%^$%',
+                  ],
+                  [
+                      '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
+                      '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
+                      '%<comment>Total</comment>:  2, <comment>Running</comment>:  2, <comment>Waiting</comment>:  0%',
+                  ],
+                  [
+                      '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
+                      '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
+                      '%<comment>Total</comment>:  2, <comment>Running</comment>:  2, <comment>Waiting</comment>:  0%',
+                  ],
+                  [
+                      '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                      '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
+                      '%<comment>Total</comment>:  2, <comment>Running</comment>:  2, <comment>Waiting</comment>:  0%',
+                  ],
+                  [
+                      '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                      '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                      '%<comment>Total</comment>:  2, <comment>Running</comment>:  2, <comment>Waiting</comment>:  0%',
+                  ],
+                  [
+                      '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                      '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
+                      '%^$%',
+                  ],
+              ],
             ],
         ];
     }
