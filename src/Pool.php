@@ -187,7 +187,6 @@ class Pool extends Collection implements RunInterface
 
         $interval = (int) ($checkInterval * 1000000);
         while ($this->poll()) {
-            $this->dispatch(RunEvent::UPDATED, new RunEvent($this));
             usleep($interval);
         }
 
@@ -241,6 +240,8 @@ class Pool extends Collection implements RunInterface
         $this->running = array_filter($this->running);
 
         $this->checkFinished();
+
+        $this->dispatch(RunEvent::UPDATED, new RunEvent($this));
 
         if (!$this->isRunning()) {
             $this->finishedTime = microtime(true);
