@@ -93,7 +93,7 @@ class Table
         $index = count($this->rows);
         $this->rows[$index] = $this->formatRow($run, '');
         $spinner = 0;
-        $bar = new TinyProgressBar(2, TinyProgressBar::FORMAT_BAR_ONLY, 1);
+        $bar = new TinyProgressBar(2, TinyProgressBar::FORMAT_COLOUR_BAR_ONLY, 1);
 
         if ($this->output->getVerbosity() >= OutputInterface::VERBOSITY_VERBOSE) {
             $run->addListener(
