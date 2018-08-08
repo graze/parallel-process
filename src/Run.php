@@ -86,9 +86,12 @@ class Run implements RunInterface
                 function ($type, $data) {
                     $this->lastType = $type;
                     foreach (explode("\n", $data) as $line) {
-                        $this->last = rtrim($line);
-                        if (mb_strlen($this->last) > 0 && $this->updateOnProcessOutput) {
-                            $this->dispatch(RunEvent::UPDATED, new RunEvent($this));
+                        $line = rtrim($line);
+                        if (mb_strlen($line) > 0) {
+                            $this->last = $line;
+                            if ($this->updateOnProcessOutput) {
+                                $this->dispatch(RunEvent::UPDATED, new RunEvent($this));
+                            }
                         }
                     }
                 }

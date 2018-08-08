@@ -41,9 +41,11 @@ class Lines
     private $colours = ['red', 'green', 'blue', 'yellow', 'magenta', 'white', 'cyan'];
     /** @var TinyProgressBar|null */
     private $bar = null;
+    /** @var int */
+    private $counter = 0;
 
     /**
-     * Stream constructor.
+     * Lines constructor.
      *
      * @param OutputInterface $output
      * @param Pool|null       $pool
@@ -159,7 +161,7 @@ class Lines
      */
     public function add(RunInterface $run)
     {
-        $index = $this->processPool->count();
+        $index = $this->counter++;
         $run->addListener(
             RunEvent::UPDATED,
             function (RunEvent $event) use ($index) {
