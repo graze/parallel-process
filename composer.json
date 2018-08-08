@@ -32,11 +32,11 @@
     "squizlabs/php_codesniffer": "^3",
     "graze/standards": "^2",
     "symfony/console": "^3.1 | ^4",
-    "graze/console-diff-renderer": "^0.6.1",
+    "graze/console-diff-renderer": "^0.6.1"
   },
   "suggest": {
     "symfony/console": "To use the Table to print current runs",
-    "graze/console-diff-renderer": "required to use Table and Lines",
+    "graze/console-diff-renderer": "required to use Table and Lines"
   },
   "autoload": {
     "psr-4": {
