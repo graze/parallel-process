@@ -15,8 +15,14 @@ Run multiple `Synfony\Process`'s at the same time.
 
 Via Composer
 
-``` bash
+```bash
 $ composer require graze/parallel-process
+```
+
+If you want to use Tables or Lines to output to the console, include:
+
+```bash
+$ composer require graze/console-diff-renderer
 ```
 
 ## Usage
