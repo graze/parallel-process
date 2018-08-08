@@ -4,6 +4,7 @@ namespace Graze\ParallelProcess\Test\Unit\Event;
 
 use Graze\ParallelProcess\Test\EventDispatcherFake;
 use Graze\ParallelProcess\Test\TestCase;
+use Symfony\Component\EventDispatcher\Event;
 
 class EventDispatcherTest extends TestCase
 {
@@ -41,14 +42,10 @@ class EventDispatcherTest extends TestCase
 
     public function testValidNameDispatch()
     {
-        $this->assertSame(
-            $this->dispatcher,
-            $this->dispatcher->doDispatch(
-                EventDispatcherFake::EVENT_VALID,
-                function () {
-                }
-            )
-        );
+        $this->dispatcher->doDispatch(EventDispatcherFake::EVENT_VALID, new Event());
+
+        // no exceptions should be thrown
+        $this->assertTrue(true);
     }
 
     /**
@@ -56,10 +53,6 @@ class EventDispatcherTest extends TestCase
      */
     public function testInvalidNameDispatchThrowsAnException()
     {
-        $this->dispatcher->doDispatch(
-            EventDispatcherFake::EVENT_INVALID,
-            function () {
-            }
-        );
+        $this->dispatcher->doDispatch(EventDispatcherFake::EVENT_INVALID, new Event());
     }
 }

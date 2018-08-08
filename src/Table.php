@@ -19,7 +19,6 @@ use Graze\DiffRenderer\Terminal\TerminalInterface;
 use Graze\ParallelProcess\Event\PoolRunEvent;
 use Graze\ParallelProcess\Event\RunEvent;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class Table
 {
@@ -132,9 +131,7 @@ class Table
                 $run = $event->getRun();
                 $this->rows[$index] = $this->formatRow($run, "<error>x</error>");
                 $this->render($index);
-                if ($run instanceof Run) {
-                    $this->exceptions[] = new ProcessFailedException($run->getProcess());
-                }
+                $this->exceptions += $run->getExceptions();
             }
         );
         if ($run instanceof Run) {

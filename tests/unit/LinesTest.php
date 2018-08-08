@@ -13,6 +13,7 @@
 
 namespace Graze\ParallelProcess\Test\Unit;
 
+use Exception;
 use Graze\ParallelProcess\Event\RunEvent;
 use Graze\ParallelProcess\Lines;
 use Graze\ParallelProcess\Pool;
@@ -245,7 +246,24 @@ class LinesTest extends TestCase
         $expected = [
             ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <fg=blue>→ Started</>%'],
             ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) \(out\) first line%'],
-            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <error>x Failed</error> \(code: 3\) some error%'],
+            [
+                <<<TEXT
+%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <error>x Failed</error> \(0\) The command "test" failed.
+
+Exit Code: 3\(some error\)
+
+Working directory: /tmp
+
+Output:
+================
+first line
+
+Error Output:
+================
+some error text%
+TEXT
+                ,
+            ],
             [
                 <<<TEXT
 %The command "test" failed.
@@ -391,7 +409,6 @@ TEXT
         $this->compareOutputs($expected, $this->bufferOutput->getWritten());
     }
 
-
     public function testNonShowProgressShowsTheProgress()
     {
         $process = Mockery::mock(Process::class);
@@ -461,7 +478,8 @@ TEXT
         );
         $run->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(false);
 
-        $startedEvent = $completedEvent = $updatedEvent = $finishedEvent = null;
+        $startedEvent = $completedEvent = $updatedEvent = null;
+        $failedEvents = [];
 
         $run->allows()->addListener(
             RunEvent::STARTED,
@@ -479,8 +497,8 @@ TEXT
         );
         $run->allows()->addListener(
             RunEvent::FAILED,
-            Mockery::on(function (callable $callback) use (&$failedEvent) {
-                $failedEvent = $callback;
+            Mockery::on(function (callable $callback) use (&$failedEvents) {
+                $failedEvents[] = $callback;
                 return true;
             })
         );
@@ -491,17 +509,100 @@ TEXT
                 return true;
             })
         );
-        $run->allows(['getTags' => ['key' => 'value']]);
+        $run->allows(['getTags' => ['key' => 'value'], 'getProgress' => null]);
 
         $this->pool->add($run);
 
         $this->lines->run(0);
 
         $run->allows()->getDuration()->andReturns(0, 0.1);
-        $run->allows()->getProgress()->andReturns(null);
+
+        $run->allows()->getExceptions()->andReturns([new Exception('some error', 5)]);
 
         call_user_func($startedEvent, new RunEvent($run));
-        call_user_func($failedEvent, new RunEvent($run));
+        foreach ($failedEvents as $failedEvent) {
+            call_user_func($failedEvent, new RunEvent($run));
+        }
+
+        $expected = [
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <fg=blue>→ Started</>%'],
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <error>x Failed</error> \(5\) some error%'],
+            ['%some error%'],
+        ];
+
+        $this->compareOutputs($expected, $this->bufferOutput->getWritten());
+    }
+
+
+    public function testRunFailureWithNoException()
+    {
+        $run = Mockery::mock(RunInterface::class);
+        $run->shouldReceive('stop');
+        $run->shouldReceive('start')->once();
+        $run->shouldReceive('hasStarted')->andReturn(true);
+        $run->shouldReceive('isRunning')->andReturn(
+            false, // add
+            false, // start
+            true,  // check
+            true,  // ...
+            true,
+            true,
+            false // complete
+        );
+        $run->shouldReceive('poll')->andReturn(
+            true,  // check
+            true,  // ...
+            true,
+            true,
+            false // complete
+        );
+        $run->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(false);
+
+        $startedEvent = $completedEvent = $updatedEvent = null;
+        $failedEvents = [];
+
+        $run->allows()->addListener(
+            RunEvent::STARTED,
+            Mockery::on(function (callable $callback) use (&$startedEvent) {
+                $startedEvent = $callback;
+                return true;
+            })
+        );
+        $run->allows()->addListener(
+            RunEvent::COMPLETED,
+            Mockery::on(function (callable $callback) use (&$completedEvent) {
+                $completedEvent = $callback;
+                return true;
+            })
+        );
+        $run->allows()->addListener(
+            RunEvent::FAILED,
+            Mockery::on(function (callable $callback) use (&$failedEvents) {
+                $failedEvents[] = $callback;
+                return true;
+            })
+        );
+        $run->allows()->addListener(
+            RunEvent::UPDATED,
+            Mockery::on(function (callable $callback) use (&$updatedEvent) {
+                $updatedEvent = $callback;
+                return true;
+            })
+        );
+        $run->allows(['getTags' => ['key' => 'value'], 'getProgress' => null]);
+
+        $this->pool->add($run);
+
+        $this->lines->run(0);
+
+        $run->allows()->getDuration()->andReturns(0, 0.1);
+
+        $run->allows()->getExceptions()->andReturns([]);
+
+        call_user_func($startedEvent, new RunEvent($run));
+        foreach ($failedEvents as $failedEvent) {
+            call_user_func($failedEvent, new RunEvent($run));
+        }
 
         $expected = [
             ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <fg=blue>→ Started</>%'],

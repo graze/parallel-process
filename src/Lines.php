@@ -18,7 +18,6 @@ use Graze\DiffRenderer\Terminal\TerminalInterface;
 use Graze\ParallelProcess\Event\PoolRunEvent;
 use Graze\ParallelProcess\Event\RunEvent;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class Lines
 {
@@ -196,26 +195,21 @@ class Lines
             RunEvent::FAILED,
             function (RunEvent $event) use ($index) {
                 $run = $event->getRun();
-                $process = null;
-                if ($run instanceof Run) {
-                    $process = $run->getProcess();
+                $exceptions = $run->getExceptions();
+                $exception = null;
+                if (count($exceptions) > 0) {
+                    $exception = reset($exceptions);
                     $error = sprintf(
-                        "<error>x Failed</error> (code: %d) %s",
-                        $process->getExitCode(),
-                        $process->getExitCodeText()
+                        "<error>x Failed</error> (%d) %s",
+                        $exception->getCode(),
+                        $exception->getMessage()
                     );
                 } else {
                     $error = "<error>x Failed</error>";
                 }
-                $this->output->writeln(
-                    $this->format(
-                        $index,
-                        $run,
-                        $error
-                    )
-                );
-                if ($process) {
-                    $this->output->writeln((new ProcessFailedException($process))->getMessage());
+                $this->output->writeln($this->format($index, $run, $error));
+                if ($exception) {
+                    $this->output->writeln($exception->getMessage());
                 }
             }
         );

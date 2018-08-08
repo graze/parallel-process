@@ -13,9 +13,12 @@
 
 namespace Graze\ParallelProcess;
 
+use Exception;
 use Graze\ParallelProcess\Event\EventDispatcherTrait;
 use Graze\ParallelProcess\Event\RunEvent;
+use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
+use Throwable;
 
 class Run implements RunInterface
 {
@@ -235,5 +238,18 @@ class Run implements RunInterface
     public function getLastMessageType()
     {
         return $this->lastType;
+    }
+
+    /**
+     * If the run was unsuccessful, get the error if applicable
+     *
+     * @return Exception[]|Throwable[]
+     */
+    public function getExceptions()
+    {
+        if ($this->hasStarted() && !$this->isSuccessful()) {
+            return [new ProcessFailedException($this->process)];
+        }
+        return [];
     }
 }

@@ -14,6 +14,7 @@
 
 namespace Graze\ParallelProcess\Test\Unit;
 
+use Exception;
 use Graze\DataStructure\Collection\CollectionInterface;
 use Graze\ParallelProcess\Event\PoolRunEvent;
 use Graze\ParallelProcess\Event\RunEvent;
@@ -71,7 +72,7 @@ class PoolTest extends TestCase
         $runs = [];
         for ($i = 0; $i < 2; $i++) {
             $runs[] = Mockery::mock(RunInterface::class)
-                             ->allows(['isRunning' => false, 'hasStarted' => false]);
+                             ->allows(['isRunning' => false, 'hasStarted' => false, 'addListener' => true]);
         }
 
         $pool = new Pool($runs);
@@ -101,7 +102,7 @@ class PoolTest extends TestCase
     public function testPoolAddingRun()
     {
         $run = Mockery::mock(RunInterface::class);
-        $run->allows(['hasStarted' => false, 'isRunning' => false]);
+        $run->allows(['hasStarted' => false, 'isRunning' => false, 'addListener' => $run]);
 
         $pool = new Pool();
         $pool->add($run);
@@ -112,7 +113,7 @@ class PoolTest extends TestCase
     public function testPoolAddingRunFiresAnEvent()
     {
         $run = Mockery::mock(RunInterface::class);
-        $run->allows(['hasStarted' => false, 'isRunning' => false]);
+        $run->allows(['hasStarted' => false, 'isRunning' => false, 'addListener' => $run]);
 
         $hit = false;
 
@@ -178,6 +179,8 @@ class PoolTest extends TestCase
             ->andReturn(true);
         $run->shouldReceive('isSuccessful')
             ->andReturn(true);
+        $run->allows()
+            ->addListener(RunEvent::FAILED, Mockery::type('callable'));
 
         $pool = new Pool([$run]);
 
@@ -200,6 +203,8 @@ class PoolTest extends TestCase
             ->andReturn(true);
         $run->shouldReceive('isSuccessful')
             ->andReturn(true);
+        $run->allows()
+            ->addListener(RunEvent::FAILED, Mockery::type('callable'));
 
         $pool = new Pool([$run]);
 
@@ -235,14 +240,22 @@ class PoolTest extends TestCase
     public function testFailedRunWithEvents()
     {
         $run = Mockery::mock(RunInterface::class);
-        $run->shouldReceive('isRunning')
-            ->andReturn(false);
+        $run->allows([
+            'isRunning'    => false,
+            'hasStarted'   => true,
+            'isSuccessful' => false,
+        ]);
         $run->shouldReceive('poll')
             ->andReturn(true, false);
-        $run->shouldReceive('hasStarted')
-            ->andReturn(true);
-        $run->shouldReceive('isSuccessful')
-            ->andReturn(false);
+        $failedListener = null;
+        $run->allows()
+            ->addListener(
+                RunEvent::FAILED,
+                Mockery::on(function (callable $handler) use (&$failedListener) {
+                    $failedListener = $handler;
+                    return true;
+                })
+            );
 
         $pool = new Pool([$run]);
 
@@ -267,12 +280,20 @@ class PoolTest extends TestCase
         $run->shouldReceive('start');
         $pool->run(0);
 
+        $exception = new Exception('test exception');
+        $run->allows()
+            ->getExceptions()->andReturn([$exception]);
+
+        call_user_func($failedListener, new RunEvent($run));
+
         $this->assertTrue($pool->hasStarted());
         $this->assertFalse($pool->isRunning());
         $this->assertFalse($pool->isSuccessful());
 
         $this->assertTrue($startedHit);
         $this->assertTrue($failedHit);
+
+        $this->assertEquals([$exception], $pool->getExceptions());
     }
 
     /**
@@ -292,12 +313,12 @@ class PoolTest extends TestCase
     public function testPoolAbleToAddRunningProcessWhenPoolHasStarted()
     {
         $run = Mockery::mock(RunInterface::class)
-                      ->allows(['isRunning' => false, 'hasStarted' => false, 'start' => null]);
+                      ->allows(['isRunning' => false, 'hasStarted' => false, 'start' => null, 'addListener' => true]);
         $pool = new Pool([$run]);
         $pool->start();
 
         $run2 = Mockery::mock(RunInterface::class)
-                       ->allows(['isRunning' => true, 'start' => null]);
+                       ->allows(['isRunning' => true, 'start' => null, 'addListener' => true]);
         $pool->add($run2);
 
         $this->assertEquals(2, $pool->count());
@@ -311,7 +332,7 @@ class PoolTest extends TestCase
         $process->shouldReceive('isStarted')->andReturn(true);
         $process->shouldReceive('isRunning')->andReturn(false, false, true, false);
         $process->shouldReceive('start')->atLeast()->once();
-        $process->shouldReceive('isSuccessful')->once()->andReturn(false);
+        $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
         $hit = false;
 
@@ -348,6 +369,7 @@ class PoolTest extends TestCase
                           'poll'         => false,
                           'hasStarted'   => true,
                           'isSuccessful' => true,
+                          'addListener'  => true,
                       ]);
 
         $pool = new Pool([$run], Pool::NO_MAX, true);
@@ -376,6 +398,7 @@ class PoolTest extends TestCase
                           'poll'         => false,
                           'hasStarted'   => true,
                           'isSuccessful' => true,
+                          'addListener'  => true,
                       ]);
 
         $pool->add($run);
@@ -403,6 +426,7 @@ class PoolTest extends TestCase
                           'poll'         => false,
                           'hasStarted'   => true,
                           'isSuccessful' => true,
+                          'addListener'  => true,
                       ]);
 
         $pool->add($run);
@@ -429,6 +453,8 @@ class PoolTest extends TestCase
             ->andReturn(true);
         $run->shouldReceive('isSuccessful')
             ->andReturn(true);
+        $run->allows()
+            ->addListener(RunEvent::FAILED, Mockery::type('callable'));
 
         $pool = new Pool([$run]);
 
@@ -456,6 +482,8 @@ class PoolTest extends TestCase
             ->andReturn(true);
         $run->shouldReceive('isSuccessful')
             ->andReturn(true);
+        $run->allows()
+            ->addListener(RunEvent::FAILED, Mockery::type('callable'));
 
         $pool = new Pool([$run]);
 
@@ -478,6 +506,8 @@ class PoolTest extends TestCase
             ->andReturn(false, true);
         $run->shouldReceive('isSuccessful')
             ->andReturn(true);
+        $run->allows()
+            ->addListener(RunEvent::FAILED, Mockery::type('callable'));
 
         $pool = new Pool([$run]);
 

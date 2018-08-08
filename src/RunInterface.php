@@ -13,6 +13,9 @@
 
 namespace Graze\ParallelProcess;
 
+use Exception;
+use Throwable;
+
 interface RunInterface
 {
     /**
@@ -39,6 +42,13 @@ interface RunInterface
      * @return bool
      */
     public function isSuccessful();
+
+    /**
+     * If the run was unsuccessful, get the error if applicable
+     *
+     * @return Exception[]|Throwable[]
+     */
+    public function getExceptions();
 
     /**
      * We think this is running

@@ -13,6 +13,7 @@
 
 namespace Graze\ParallelProcess;
 
+use Exception;
 use Graze\DataStructure\Collection\Collection;
 use Graze\ParallelProcess\Event\EventDispatcherTrait;
 use Graze\ParallelProcess\Event\PoolRunEvent;
@@ -20,6 +21,7 @@ use Graze\ParallelProcess\Event\RunEvent;
 use Graze\ParallelProcess\Exceptions\NotRunningException;
 use InvalidArgumentException;
 use Symfony\Component\Process\Process;
+use Throwable;
 
 class Pool extends Collection implements RunInterface
 {
@@ -46,6 +48,8 @@ class Pool extends Collection implements RunInterface
     private $runInstantly = false;
     /** @var string[] */
     private $tags;
+    /** @var Exception[]|Throwable[] */
+    private $exceptions = [];
 
     /**
      * Pool constructor.
@@ -115,6 +119,12 @@ class Pool extends Collection implements RunInterface
         parent::add($item);
 
         $this->dispatch(PoolRunEvent::POOL_RUN_ADDED, new PoolRunEvent($this, $item));
+        $item->addListener(
+            RunEvent::FAILED,
+            function (RunEvent $event) {
+                $this->exceptions += $event->getRun()->getExceptions();
+            }
+        );
 
         if ($this->isRunning() || $this->runInstantly) {
             $this->startRun($item);
@@ -381,5 +391,15 @@ class Pool extends Collection implements RunInterface
     public function getProgress()
     {
         return [count($this->finished), count($this->items), count($this->finished) / count($this->items)];
+    }
+
+    /**
+     * If the run was unsuccessful, get the error if applicable
+     *
+     * @return Exception[]|Throwable[]
+     */
+    public function getExceptions()
+    {
+        return $this->exceptions;
     }
 }

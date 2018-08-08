@@ -51,6 +51,7 @@ class RunTest extends TestCase
         $this->assertFalse($run->isSuccessful(), 'should not be successful');
         $this->assertTrue($run->isUpdateOnPoll(), 'update on poll should be on by deafult');
         $this->assertTrue($run->isUpdateOnProcessOutput(), 'update on poll should be on by deafult');
+        $this->assertEquals([], $run->getExceptions(), 'no exceptions should be returned');
     }
 
     public function testUpdateOnPoll()
