@@ -1,4 +1,15 @@
 <?php
+/**
+ * This file is part of graze/parallel-process.
+ *
+ * Copyright © 2018 Nature Delivered Ltd. <https://www.graze.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ *
+ * @license https://github.com/graze/parallel-process/blob/master/LICENSE.md
+ * @link    https://github.com/graze/parallel-process
+ */
 
 namespace Graze\ParallelProcess\Test\Unit;
 
@@ -41,7 +52,6 @@ class TinyProgressBarTest extends TestCase
      */
     public function barDataProvider()
     {
-        $standardChars = "▏▎▍▌▋▊▉█";
         return [
             [3, 10, 100, '|▍  |  10% 10/100'],
             [3, 1, 100, '|▏  |   1% 1/100'], // anything over 0 will display something
@@ -58,6 +68,7 @@ class TinyProgressBarTest extends TestCase
             [3, 100, 100, '███', '{bar}'],
             [3, 100, 100, '100/100', '{position}/{max}'],
             [3, 100, 100, '100%', '{perc}'],
+            [10, 15, 100, '|█▄        |  15% 15/100', '|{bar}| {perc} {position}/{max}', [" ", "▄", "█"]],
         ];
     }
 
@@ -105,5 +116,41 @@ class TinyProgressBarTest extends TestCase
             [-1],
             [PHP_INT_MIN],
         ];
+    }
+
+    public function testAccesors()
+    {
+        $bar = new TinyProgressBar(5);
+
+        $this->assertEquals(0, $bar->getPosition());
+        $this->assertEquals(100, $bar->getMax());
+        $this->assertEquals(5, $bar->getLength());
+        $this->assertEquals(TinyProgressBar::FORMAT_DEFAULT, $bar->getFormat());
+
+        $this->assertSame($bar, $bar->setPosition(5));
+        $this->assertSame($bar, $bar->setMax(200));
+        $this->assertSame($bar, $bar->setLength(10));
+        $this->assertSame($bar, $bar->setFormat(TinyProgressBar::FORMAT_SHORT));
+
+        $this->assertEquals(5, $bar->getPosition());
+        $this->assertEquals(200, $bar->getMax());
+        $this->assertEquals(10, $bar->getLength());
+        $this->assertEquals(TinyProgressBar::FORMAT_SHORT, $bar->getFormat());
+    }
+
+    public function testAdvance()
+    {
+        $bar = new TinyProgressBar(5);
+
+        $this->assertEquals(0, $bar->getPosition());
+
+        $this->assertSame($bar, $bar->advance());
+        $this->assertEquals(1, $bar->getPosition());
+
+        $this->assertSame($bar, $bar->advance(3));
+        $this->assertEquals(4, $bar->getPosition());
+
+        $this->assertSame($bar, $bar->advance(0.2));
+        $this->assertEquals(4.2, $bar->getPosition(), '', 0.00001);
     }
 }

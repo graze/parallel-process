@@ -1,4 +1,15 @@
 <?php
+/**
+ * This file is part of graze/parallel-process.
+ *
+ * Copyright © 2018 Nature Delivered Ltd. <https://www.graze.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ *
+ * @license https://github.com/graze/parallel-process/blob/master/LICENSE.md
+ * @link    https://github.com/graze/parallel-process
+ */
 
 namespace Graze\ParallelProcess;
 
@@ -18,9 +29,9 @@ class TinyProgressBar
      * Example formats:
      *  - `{bar} {position}/{max} {perc}`
      */
-    const FORMAT_DEFAULT = '|<comment>{bar}</comment>| <info>{perc}</info> {position}/{max}';
-    const FORMAT_SHORT = '|<comment>{bar}</comment>| <info>{perc}</info>';
-    const FORMAT_BAR_ONLY = '{bar}';
+    const FORMAT_DEFAULT         = '|<comment>{bar}</comment>| <info>{perc}</info> {position}/{max}';
+    const FORMAT_SHORT           = '|<comment>{bar}</comment>| <info>{perc}</info>';
+    const FORMAT_BAR_ONLY        = '{bar}';
     const FORMAT_COLOUR_BAR_ONLY = '<comment>{bar}</comment>';
 
     /** @var int */
@@ -52,11 +63,13 @@ class TinyProgressBar
 
     /**
      * Sets the characters to use for a bar. A bar is n chars long (defined in the constructor), each char will use
-     * each character in the array once
+     * each character in the array once.
+     *
+     * The first character should always be blank
      *
      * Example:
      *
-     *     ->setBarCharacters(["▄","█"]);
+     *     ->setBarCharacters([" ","▄","█"]);
      *
      *     ▄
      *
@@ -82,12 +95,16 @@ class TinyProgressBar
 
     /**
      * @param float $step
+     *
+     * @return $this
      */
     public function advance($step = 1.0)
     {
         if ($this->position < $this->max) {
             $this->position = min($this->position + $step, $this->max);
         }
+
+        return $this;
     }
 
     /**

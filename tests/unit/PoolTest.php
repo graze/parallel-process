@@ -3,7 +3,7 @@
 /**
  * This file is part of graze/parallel-process.
  *
- * Copyright (c) 2017 Nature Delivered Ltd. <https://www.graze.com>
+ * Copyright © 2018 Nature Delivered Ltd. <https://www.graze.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -232,6 +232,49 @@ class PoolTest extends TestCase
         $this->assertTrue($completedHit);
     }
 
+    public function testFailedRunWithEvents()
+    {
+        $run = Mockery::mock(RunInterface::class);
+        $run->shouldReceive('isRunning')
+            ->andReturn(false);
+        $run->shouldReceive('poll')
+            ->andReturn(true, false);
+        $run->shouldReceive('hasStarted')
+            ->andReturn(true);
+        $run->shouldReceive('isSuccessful')
+            ->andReturn(false);
+
+        $pool = new Pool([$run]);
+
+        $startedHit = false;
+        $failedHit = false;
+
+        $pool->addListener(
+            RunEvent::STARTED,
+            function (RunEvent $event) use ($pool, &$startedHit) {
+                $this->assertSame($pool, $event->getRun());
+                $startedHit = true;
+            }
+        );
+        $pool->addListener(
+            RunEvent::FAILED,
+            function (RunEvent $event) use ($pool, &$failedHit) {
+                $this->assertSame($pool, $event->getRun());
+                $failedHit = true;
+            }
+        );
+
+        $run->shouldReceive('start');
+        $pool->run(0);
+
+        $this->assertTrue($pool->hasStarted());
+        $this->assertFalse($pool->isRunning());
+        $this->assertFalse($pool->isSuccessful());
+
+        $this->assertTrue($startedHit);
+        $this->assertTrue($failedHit);
+    }
+
     /**
      * @expectedException \Graze\ParallelProcess\Exceptions\NotRunningException
      */
@@ -373,5 +416,83 @@ class PoolTest extends TestCase
         $this->assertTrue($pool->hasStarted());
         $this->assertFalse($pool->isRunning());
         $this->assertTrue($pool->isSuccessful());
+    }
+
+    public function testFinished()
+    {
+        $run = Mockery::mock(RunInterface::class);
+        $run->shouldReceive('isRunning')
+            ->andReturn(false);
+        $run->shouldReceive('poll')
+            ->andReturn(true, false);
+        $run->shouldReceive('hasStarted')
+            ->andReturn(true);
+        $run->shouldReceive('isSuccessful')
+            ->andReturn(true);
+
+        $pool = new Pool([$run]);
+
+        $run->shouldReceive('start');
+        $pool->run(0);
+
+        $this->assertEquals([$run], $pool->getFinished());
+    }
+
+    public function testTags()
+    {
+        $pool = new Pool([], Pool::NO_MAX, false, ['tag1', 'key' => 'value']);
+
+        $this->assertSame(['tag1', 'key' => 'value'], $pool->getTags());
+    }
+
+    public function testProgress()
+    {
+        $run = Mockery::mock(RunInterface::class);
+        $run->shouldReceive('isRunning')
+            ->andReturn(false);
+        $run->shouldReceive('poll')
+            ->andReturn(true, false);
+        $run->shouldReceive('hasStarted')
+            ->andReturn(true);
+        $run->shouldReceive('isSuccessful')
+            ->andReturn(true);
+
+        $pool = new Pool([$run]);
+
+        $this->assertEquals([0, 1, 0], $pool->getProgress());
+
+        $run->shouldReceive('start');
+        $pool->run(0);
+
+        $this->assertEquals([1, 1, 1], $pool->getProgress());
+    }
+
+    public function testDuration()
+    {
+        $run = Mockery::mock(RunInterface::class);
+        $run->shouldReceive('isRunning')
+            ->andReturn(false, true, false);
+        $run->shouldReceive('poll')
+            ->andReturn(true, false);
+        $run->shouldReceive('hasStarted')
+            ->andReturn(false, true);
+        $run->shouldReceive('isSuccessful')
+            ->andReturn(true);
+
+        $pool = new Pool([$run]);
+
+        $this->assertEquals(0, $pool->getDuration());
+
+        $run->shouldReceive('start');
+
+        $pool->start();
+
+        $this->assertGreaterThan(0, $pool->getDuration());
+
+        $pool->run(0);
+
+        $duration = $pool->getDuration();
+
+        $this->assertEquals($duration, $pool->getDuration());
     }
 }
