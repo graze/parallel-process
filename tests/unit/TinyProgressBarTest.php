@@ -91,7 +91,7 @@ class TinyProgressBarTest extends TestCase
         return [
             [0],
             [-1],
-            [PHP_INT_MIN],
+            [-9223372036854775808],
         ];
     }
 
@@ -114,11 +114,11 @@ class TinyProgressBarTest extends TestCase
         return [
             [0],
             [-1],
-            [PHP_INT_MIN],
+            [-9223372036854775808],
         ];
     }
 
-    public function testAccesors()
+    public function testAccessors()
     {
         $bar = new TinyProgressBar(5);
 
