@@ -533,7 +533,6 @@ TEXT
         $this->compareOutputs($expected, $this->bufferOutput->getWritten());
     }
 
-
     public function testRunFailureWithNoException()
     {
         $run = Mockery::mock(RunInterface::class);
