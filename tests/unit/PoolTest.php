@@ -3,7 +3,7 @@
 /**
  * This file is part of graze/parallel-process.
  *
- * Copyright (c) 2017 Nature Delivered Ltd. <https://www.graze.com>
+ * Copyright © 2018 Nature Delivered Ltd. <https://www.graze.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -14,7 +14,10 @@
 
 namespace Graze\ParallelProcess\Test\Unit;
 
+use Exception;
 use Graze\DataStructure\Collection\CollectionInterface;
+use Graze\ParallelProcess\Event\PoolRunEvent;
+use Graze\ParallelProcess\Event\RunEvent;
 use Graze\ParallelProcess\Pool;
 use Graze\ParallelProcess\Run;
 use Graze\ParallelProcess\RunInterface;
@@ -69,7 +72,7 @@ class PoolTest extends TestCase
         $runs = [];
         for ($i = 0; $i < 2; $i++) {
             $runs[] = Mockery::mock(RunInterface::class)
-                             ->allows(['isRunning' => false, 'hasStarted' => false]);
+                             ->allows(['isRunning' => false, 'hasStarted' => false, 'addListener' => true]);
         }
 
         $pool = new Pool($runs);
@@ -99,12 +102,34 @@ class PoolTest extends TestCase
     public function testPoolAddingRun()
     {
         $run = Mockery::mock(RunInterface::class);
-        $run->allows(['hasStarted' => false, 'isRunning' => false]);
+        $run->allows(['hasStarted' => false, 'isRunning' => false, 'addListener' => $run]);
 
         $pool = new Pool();
         $pool->add($run);
 
         $this->assertEquals(1, $pool->count());
+    }
+
+    public function testPoolAddingRunFiresAnEvent()
+    {
+        $run = Mockery::mock(RunInterface::class);
+        $run->allows(['hasStarted' => false, 'isRunning' => false, 'addListener' => $run]);
+
+        $hit = false;
+
+        $pool = new Pool();
+        $pool->addListener(
+            PoolRunEvent::POOL_RUN_ADDED,
+            function (PoolRunEvent $event) use ($pool, $run, &$hit) {
+                $this->assertSame($pool, $event->getPool());
+                $this->assertSame($run, $event->getRun());
+                $hit = true;
+            }
+        );
+        $pool->add($run);
+
+        $this->assertEquals(1, $pool->count());
+        $this->assertTrue($hit);
     }
 
     public function testPoolAddingProcess()
@@ -119,6 +144,30 @@ class PoolTest extends TestCase
         $this->assertEquals($this->process, $run->getProcess());
     }
 
+    public function testPoolAddingProcessFiresAnEvent()
+    {
+        $pool = new Pool();
+        $pool->addListener(
+            PoolRunEvent::POOL_RUN_ADDED,
+            function (PoolRunEvent $event) use ($pool, &$hit) {
+                $this->assertSame($pool, $event->getPool());
+                $run = $event->getRun();
+                if ($run instanceof Run) {
+                    $this->assertSame($this->process, $run->getProcess());
+                }
+                $hit = true;
+            }
+        );
+        $pool->add($this->process);
+
+        $this->assertEquals(1, $pool->count());
+        $runs = $pool->getAll();
+        $run = reset($runs);
+
+        $this->assertEquals($this->process, $run->getProcess());
+        $this->assertTrue($hit);
+    }
+
     public function testSuccessfulRun()
     {
         $run = Mockery::mock(RunInterface::class);
@@ -130,6 +179,8 @@ class PoolTest extends TestCase
             ->andReturn(true);
         $run->shouldReceive('isSuccessful')
             ->andReturn(true);
+        $run->allows()
+            ->addListener(RunEvent::FAILED, Mockery::type('callable'));
 
         $pool = new Pool([$run]);
 
@@ -139,6 +190,110 @@ class PoolTest extends TestCase
         $this->assertTrue($pool->hasStarted());
         $this->assertFalse($pool->isRunning());
         $this->assertTrue($pool->isSuccessful());
+    }
+
+    public function testSuccessfulRunWithEvents()
+    {
+        $run = Mockery::mock(RunInterface::class);
+        $run->shouldReceive('isRunning')
+            ->andReturn(false);
+        $run->shouldReceive('poll')
+            ->andReturn(true, false);
+        $run->shouldReceive('hasStarted')
+            ->andReturn(true);
+        $run->shouldReceive('isSuccessful')
+            ->andReturn(true);
+        $run->allows()
+            ->addListener(RunEvent::FAILED, Mockery::type('callable'));
+
+        $pool = new Pool([$run]);
+
+        $startedHit = false;
+        $completedHit = false;
+
+        $pool->addListener(
+            RunEvent::STARTED,
+            function (RunEvent $event) use ($pool, &$startedHit) {
+                $this->assertSame($pool, $event->getRun());
+                $startedHit = true;
+            }
+        );
+        $pool->addListener(
+            RunEvent::COMPLETED,
+            function (RunEvent $event) use ($pool, &$completedHit) {
+                $this->assertSame($pool, $event->getRun());
+                $completedHit = true;
+            }
+        );
+
+        $run->shouldReceive('start');
+        $pool->run(0);
+
+        $this->assertTrue($pool->hasStarted());
+        $this->assertFalse($pool->isRunning());
+        $this->assertTrue($pool->isSuccessful());
+
+        $this->assertTrue($startedHit);
+        $this->assertTrue($completedHit);
+    }
+
+    public function testFailedRunWithEvents()
+    {
+        $run = Mockery::mock(RunInterface::class);
+        $run->allows([
+            'isRunning'    => false,
+            'hasStarted'   => true,
+            'isSuccessful' => false,
+        ]);
+        $run->shouldReceive('poll')
+            ->andReturn(true, false);
+        $failedListener = null;
+        $run->allows()
+            ->addListener(
+                RunEvent::FAILED,
+                Mockery::on(function (callable $handler) use (&$failedListener) {
+                    $failedListener = $handler;
+                    return true;
+                })
+            );
+
+        $pool = new Pool([$run]);
+
+        $startedHit = false;
+        $failedHit = false;
+
+        $pool->addListener(
+            RunEvent::STARTED,
+            function (RunEvent $event) use ($pool, &$startedHit) {
+                $this->assertSame($pool, $event->getRun());
+                $startedHit = true;
+            }
+        );
+        $pool->addListener(
+            RunEvent::FAILED,
+            function (RunEvent $event) use ($pool, &$failedHit) {
+                $this->assertSame($pool, $event->getRun());
+                $failedHit = true;
+            }
+        );
+
+        $run->shouldReceive('start');
+        $pool->run(0);
+
+        $exception = new Exception('test exception');
+        $run->allows()
+            ->getExceptions()->andReturn([$exception]);
+
+        call_user_func($failedListener, new RunEvent($run));
+
+        $this->assertTrue($pool->hasStarted());
+        $this->assertFalse($pool->isRunning());
+        $this->assertFalse($pool->isSuccessful());
+
+        $this->assertTrue($startedHit);
+        $this->assertTrue($failedHit);
+
+        $this->assertEquals([$exception], $pool->getExceptions());
     }
 
     /**
@@ -158,69 +313,16 @@ class PoolTest extends TestCase
     public function testPoolAbleToAddRunningProcessWhenPoolHasStarted()
     {
         $run = Mockery::mock(RunInterface::class)
-                      ->allows(['isRunning' => false, 'hasStarted' => false, 'start' => null]);
+                      ->allows(['isRunning' => false, 'hasStarted' => false, 'start' => null, 'addListener' => true]);
         $pool = new Pool([$run]);
         $pool->start();
 
         $run2 = Mockery::mock(RunInterface::class)
-                       ->allows(['isRunning' => true, 'start' => null]);
+                       ->allows(['isRunning' => true, 'start' => null, 'addListener' => true]);
         $pool->add($run2);
 
         $this->assertEquals(2, $pool->count());
         $this->assertTrue($pool->isRunning());
-    }
-
-    public function testOnSuccessIsCalledOnSuccessfulProcess()
-    {
-        $process = Mockery::mock(Process::class);
-        $process->shouldReceive('stop');
-        $process->shouldReceive('isStarted')->andReturn(true);
-        $process->shouldReceive('isRunning')->andReturn(false);
-        $process->shouldReceive('start')->atLeast()->once();
-        $process->shouldReceive('isSuccessful')->once()->andReturn(true);
-
-        $hit = false;
-
-        $pool = new Pool(
-            [],
-            function ($proc) use ($process, &$hit) {
-                $this->assertSame($proc, $process);
-                $hit = true;
-            }
-        );
-
-        $pool->add($process);
-
-        $pool->run(0);
-
-        $this->assertTrue($hit);
-    }
-
-    public function testOnFailureIsCalledForErroredProcess()
-    {
-        $process = Mockery::mock(Process::class);
-        $process->shouldReceive('stop');
-        $process->shouldReceive('isStarted')->andReturn(true);
-        $process->shouldReceive('isRunning')->andReturn(false);
-        $process->shouldReceive('start')->atLeast()->once();
-        $process->shouldReceive('isSuccessful')->once()->andReturn(false);
-
-        $hit = false;
-
-        $pool = new Pool(
-            [],
-            null,
-            function ($proc) use ($process, &$hit) {
-                $this->assertEquals($proc, $process);
-                $hit = true;
-            }
-        );
-
-        $pool->add($process);
-
-        $pool->run(0);
-
-        $this->assertTrue($hit);
     }
 
     public function testOnProgressIsCalledDuringProcessRun()
@@ -230,133 +332,22 @@ class PoolTest extends TestCase
         $process->shouldReceive('isStarted')->andReturn(true);
         $process->shouldReceive('isRunning')->andReturn(false, false, true, false);
         $process->shouldReceive('start')->atLeast()->once();
-        $process->shouldReceive('isSuccessful')->once()->andReturn(false);
-
-        $hit = false;
-
-        $pool = new Pool(
-            [],
-            null,
-            null,
-            function ($proc) use ($process, &$hit) {
-                $this->assertEquals($proc, $process);
-                $hit = true;
-            }
-        );
-
-        $pool->add($process);
-
-        $pool->run(0);
-
-        $this->assertTrue($hit);
-    }
-
-    public function testOnSuccessSetterIsCalledOnSuccessfulProcess()
-    {
-        $process = Mockery::mock(Process::class);
-        $process->shouldReceive('stop');
-        $process->shouldReceive('isStarted')->andReturn(true);
-        $process->shouldReceive('isRunning')->andReturn(false);
-        $process->shouldReceive('start')->atLeast()->once();
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
         $hit = false;
 
         $pool = new Pool();
-        $this->assertSame(
-            $pool,
-            $pool->setOnSuccess(function ($proc) use ($process, &$hit) {
-                $this->assertEquals($proc, $process);
+        $pool->addListener(
+            RunEvent::UPDATED,
+            function (RunEvent $event) use ($pool, &$hit) {
+                $run = $event->getRun();
+                $this->assertEquals($pool, $run);
                 $hit = true;
-            })
+            }
         );
 
         $pool->add($process);
-
         $pool->run(0);
-
-        $this->assertTrue($hit);
-    }
-
-    public function testOnFailureSetterIsCalledForErroredProcess()
-    {
-        $process = Mockery::mock(Process::class);
-        $process->shouldReceive('stop');
-        $process->shouldReceive('isStarted')->andReturn(true);
-        $process->shouldReceive('isRunning')->andReturn(false);
-        $process->shouldReceive('poll')->andReturn(false);
-        $process->shouldReceive('start')->atLeast()->once();
-        $process->shouldReceive('isSuccessful')->once()->andReturn(false);
-
-        $hit = false;
-
-        $pool = new Pool();
-        $this->assertSame(
-            $pool,
-            $pool->setOnFailure(function ($proc) use ($process, &$hit) {
-                $this->assertEquals($proc, $process);
-                $hit = true;
-            })
-        );
-
-        $pool->add($process);
-
-        $pool->run(0);
-
-        $this->assertTrue($hit);
-    }
-
-    public function testOnProgressSetterIsCalledDuringProcessRun()
-    {
-        $process = Mockery::mock(Process::class);
-        $process->shouldReceive('stop');
-        $process->shouldReceive('isStarted')->andReturn(true);
-        $process->shouldReceive('isRunning')->andReturn(false, false, true, false);
-        $process->shouldReceive('start')->atLeast()->once();
-        $process->shouldReceive('isSuccessful')->once()->andReturn(false);
-
-        $hit = false;
-
-        $pool = new Pool();
-        $this->assertSame(
-            $pool,
-            $pool->setOnProgress(function ($proc) use ($process, &$hit) {
-                $this->assertEquals($proc, $process);
-                $hit = true;
-            })
-        );
-
-        $pool->add($process);
-
-        $pool->run(0);
-
-        $this->assertTrue($hit);
-    }
-
-    public function testOnStartSetterIsCalledDuringProcessRun()
-    {
-        $process = Mockery::mock(Process::class);
-        $process->shouldReceive('stop');
-        $process->shouldReceive('isStarted')->andReturn(true);
-        $process->shouldReceive('isRunning')->andReturn(false, false, true, false);
-        $process->shouldReceive('start')->atLeast()->once();
-        $process->shouldReceive('isSuccessful')->once()->andReturn(false);
-
-        $hit = false;
-
-        $pool = new Pool();
-        $this->assertSame(
-            $pool,
-            $pool->setOnStart(function ($proc) use ($process, &$hit) {
-                $this->assertEquals($proc, $process);
-                $hit = true;
-            })
-        );
-
-        $pool->add($process);
-
-        $pool->run(0);
-
         $this->assertTrue($hit);
     }
 
@@ -378,9 +369,10 @@ class PoolTest extends TestCase
                           'poll'         => false,
                           'hasStarted'   => true,
                           'isSuccessful' => true,
+                          'addListener'  => true,
                       ]);
 
-        $pool = new Pool([$run], null, null, null, null, Pool::NO_MAX, true);
+        $pool = new Pool([$run], Pool::NO_MAX, true);
 
         $this->assertTrue($pool->hasStarted());
         $this->assertTrue($pool->isRunning());
@@ -396,7 +388,6 @@ class PoolTest extends TestCase
 
     public function testPoolRunsRunWhenInstantRunIsOn()
     {
-        $run = Mockery::mock(RunInterface::class);
         $pool = new Pool();
         $pool->setRunInstantly(true);
 
@@ -407,6 +398,7 @@ class PoolTest extends TestCase
                           'poll'         => false,
                           'hasStarted'   => true,
                           'isSuccessful' => true,
+                          'addListener'  => true,
                       ]);
 
         $pool->add($run);
@@ -424,7 +416,6 @@ class PoolTest extends TestCase
 
     public function testRunningRunAddingToAnInstantRunProcessCarriesOn()
     {
-        $run = Mockery::mock(RunInterface::class);
         $pool = new Pool();
         $pool->setRunInstantly(true);
 
@@ -435,6 +426,7 @@ class PoolTest extends TestCase
                           'poll'         => false,
                           'hasStarted'   => true,
                           'isSuccessful' => true,
+                          'addListener'  => true,
                       ]);
 
         $pool->add($run);
@@ -448,5 +440,89 @@ class PoolTest extends TestCase
         $this->assertTrue($pool->hasStarted());
         $this->assertFalse($pool->isRunning());
         $this->assertTrue($pool->isSuccessful());
+    }
+
+    public function testFinished()
+    {
+        $run = Mockery::mock(RunInterface::class);
+        $run->shouldReceive('isRunning')
+            ->andReturn(false);
+        $run->shouldReceive('poll')
+            ->andReturn(true, false);
+        $run->shouldReceive('hasStarted')
+            ->andReturn(true);
+        $run->shouldReceive('isSuccessful')
+            ->andReturn(true);
+        $run->allows()
+            ->addListener(RunEvent::FAILED, Mockery::type('callable'));
+
+        $pool = new Pool([$run]);
+
+        $run->shouldReceive('start');
+        $pool->run(0);
+
+        $this->assertEquals([$run], $pool->getFinished());
+    }
+
+    public function testTags()
+    {
+        $pool = new Pool([], Pool::NO_MAX, false, ['tag1', 'key' => 'value']);
+
+        $this->assertSame(['tag1', 'key' => 'value'], $pool->getTags());
+    }
+
+    public function testProgress()
+    {
+        $run = Mockery::mock(RunInterface::class);
+        $run->shouldReceive('isRunning')
+            ->andReturn(false);
+        $run->shouldReceive('poll')
+            ->andReturn(true, false);
+        $run->shouldReceive('hasStarted')
+            ->andReturn(true);
+        $run->shouldReceive('isSuccessful')
+            ->andReturn(true);
+        $run->allows()
+            ->addListener(RunEvent::FAILED, Mockery::type('callable'));
+
+        $pool = new Pool([$run]);
+
+        $this->assertEquals([0, 1, 0], $pool->getProgress());
+
+        $run->shouldReceive('start');
+        $pool->run(0);
+
+        $this->assertEquals([1, 1, 1], $pool->getProgress());
+    }
+
+    public function testDuration()
+    {
+        $run = Mockery::mock(RunInterface::class);
+        $run->shouldReceive('isRunning')
+            ->andReturn(false, true, false);
+        $run->shouldReceive('poll')
+            ->andReturn(true, false);
+        $run->shouldReceive('hasStarted')
+            ->andReturn(false, true);
+        $run->shouldReceive('isSuccessful')
+            ->andReturn(true);
+        $run->allows()
+            ->addListener(RunEvent::FAILED, Mockery::type('callable'));
+
+        $pool = new Pool([$run]);
+
+        $this->assertEquals(0, $pool->getDuration());
+
+        $run->shouldReceive('start');
+
+        $pool->start();
+
+        $this->assertGreaterThan(0, $pool->getDuration());
+
+        $pool->run(0);
+
+        $duration = $pool->getDuration();
+
+        $this->assertEquals($duration, $pool->getDuration());
     }
 }

@@ -2,6 +2,7 @@ language: php
 
 dist: trusty
 
+## Cache composer bits
 cache:
   directories:
     - $HOME/.composer/cache/files

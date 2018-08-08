@@ -1,9 +1,24 @@
 <?php
+/**
+ * This file is part of graze/parallel-process.
+ *
+ * Copyright © 2018 Nature Delivered Ltd. <https://www.graze.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ *
+ * @license https://github.com/graze/parallel-process/blob/master/LICENSE.md
+ * @link    https://github.com/graze/parallel-process
+ */
 
 namespace Graze\ParallelProcess\Test\Unit;
 
+use Exception;
+use Graze\ParallelProcess\Event\RunEvent;
 use Graze\ParallelProcess\Lines;
 use Graze\ParallelProcess\Pool;
+use Graze\ParallelProcess\Run;
+use Graze\ParallelProcess\RunInterface;
 use Graze\ParallelProcess\Test\BufferDiffOutput;
 use Graze\ParallelProcess\Test\TestCase;
 use Mockery;
@@ -50,6 +65,7 @@ class LinesTest extends TestCase
 
         $this->assertFalse($lines->isShowType());
     }
+
     public function testShowProcessColours()
     {
         $output = Mockery::mock(OutputInterface::class);
@@ -96,7 +112,7 @@ class LinesTest extends TestCase
         );
         $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
 
-        $this->lines->add($process, ['key' => 'value']);
+        $this->pool->add($process, ['key' => 'value']);
 
         $this->lines->run(0);
 
@@ -137,7 +153,7 @@ class LinesTest extends TestCase
         $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
 
         $this->lines->setColourProcesses(false);
-        $this->lines->add($process, ['key' => 'value']);
+        $this->pool->add($process, ['key' => 'value']);
 
         $this->lines->run(0);
 
@@ -177,7 +193,7 @@ class LinesTest extends TestCase
         );
         $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
 
-        $this->lines->add($process, ['value']);
+        $this->pool->add($process, ['value']);
 
         $this->lines->run(0);
 
@@ -223,15 +239,33 @@ class LinesTest extends TestCase
         $process->shouldReceive('getErrorOutput')->andReturn('some error text');
         $process->shouldReceive('getOutput')->andReturn('first line');
 
-        $this->lines->add($process, ['key' => 'value']);
+        $this->pool->add($process, ['key' => 'value']);
 
         $this->lines->run(0);
 
         $expected = [
             ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <fg=blue>→ Started</>%'],
             ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) \(out\) first line%'],
-            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <error>x Failed</error> \(code: 3\) some error%'],
-            [<<<TEXT
+            [
+                <<<TEXT
+%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <error>x Failed</error> \(0\) The command "test" failed.
+
+Exit Code: 3\(some error\)
+
+Working directory: /tmp
+
+Output:
+================
+first line
+
+Error Output:
+================
+some error text%
+TEXT
+                ,
+            ],
+            [
+                <<<TEXT
 %The command "test" failed.
 
 Exit Code: 3\(some error\)
@@ -246,6 +280,7 @@ Error Output:
 ================
 some error text%
 TEXT
+                ,
             ],
         ];
 
@@ -278,7 +313,7 @@ TEXT
         $process->shouldReceive('getOutput')->andReturn('first line');
 
         $this->lines->setShowType(false);
-        $this->lines->add($process, ['key' => 'value']);
+        $this->pool->add($process, ['key' => 'value']);
 
         $this->lines->run(0);
 
@@ -291,7 +326,7 @@ TEXT
         $this->compareOutputs($expected, $this->bufferOutput->getWritten());
     }
 
-    public function testShowDurationDoesNotShowTheDuration()
+    public function testShowDurationToFalseDoesNotShowTheDuration()
     {
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
@@ -317,7 +352,7 @@ TEXT
         $process->shouldReceive('getOutput')->andReturn('first line');
 
         $this->lines->setShowDuration(false);
-        $this->lines->add($process, ['key' => 'value']);
+        $this->pool->add($process, ['key' => 'value']);
 
         $this->lines->run(0);
 
@@ -325,6 +360,252 @@ TEXT
             ['%<info>key</info>: <options=bold;fg=\w+>value</> <fg=blue>→ Started</>%'],
             ['%<info>key</info>: <options=bold;fg=\w+>value</> \(out\) first line%'],
             ['%<info>key</info>: <options=bold;fg=\w+>value</> <info>✓ Succeeded</info>%'],
+        ];
+
+        $this->compareOutputs($expected, $this->bufferOutput->getWritten());
+    }
+
+    public function testShowProgressShowsTheProgress()
+    {
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('stop');
+        $process->shouldReceive('start')->with(
+            Mockery::on(
+                function ($closure) {
+                    call_user_func($closure, Process::OUT, 'first line');
+                    return true;
+                }
+            )
+        )->once();
+        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isRunning')->andReturn(
+            false, // add
+            false, // start
+            true,  // check
+            true,  // ...
+            true,
+            true,
+            false // complete
+        );
+        $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
+        $process->shouldReceive('getOutput')->andReturn('first line');
+
+        $run = Mockery::mock(Run::class, [$process, ['key' => 'value']])->makePartial();
+        $run->allows()
+            ->getProgress()
+            ->andReturns([0, 100, 0], [50, 100, 0.5], [100, 100, 1]);
+
+        $this->lines->setShowProgress(true);
+        $this->pool->add($run);
+
+        $this->lines->run(0);
+
+        $expected = [
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) |<comment>  </comment>| <fg=black;bg=cyan>  0\%</> <fg=blue>→ Started</>%'],
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) |<comment>█ </comment>| <fg=black;bg=cyan> 50\%</> \(out\) first line%'],
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) |<comment>██</comment>| <fg=black;bg=cyan>100\%</> <info>✓ Succeeded</info>%'],
+        ];
+
+        $this->compareOutputs($expected, $this->bufferOutput->getWritten());
+    }
+
+    public function testNonShowProgressShowsTheProgress()
+    {
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('stop');
+        $process->shouldReceive('start')->with(
+            Mockery::on(
+                function ($closure) {
+                    call_user_func($closure, Process::OUT, 'first line');
+                    return true;
+                }
+            )
+        )->once();
+        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isRunning')->andReturn(
+            false, // add
+            false, // start
+            true,  // check
+            true,  // ...
+            true,
+            true,
+            false // complete
+        );
+        $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
+        $process->shouldReceive('getOutput')->andReturn('first line');
+
+        $run = Mockery::mock(Run::class, [$process, ['key' => 'value']])->makePartial();
+        $run->allows()
+            ->getProgress()
+            ->andReturns([0, 100, 0], [50, 100, 0.5], [100, 100, 1]);
+
+        $this->lines->setShowProgress(false);
+        $this->assertFalse($this->lines->isShowProgress());
+        $this->pool->add($run);
+
+        $this->lines->run(0);
+
+        $expected = [
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <fg=blue>→ Started</>%'],
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) \(out\) first line%'],
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <info>✓ Succeeded</info>%'],
+        ];
+
+        $this->compareOutputs($expected, $this->bufferOutput->getWritten());
+    }
+
+    public function testNonProcessRunFailure()
+    {
+        $run = Mockery::mock(RunInterface::class);
+        $run->shouldReceive('stop');
+        $run->shouldReceive('start')->once();
+        $run->shouldReceive('hasStarted')->andReturn(true);
+        $run->shouldReceive('isRunning')->andReturn(
+            false, // add
+            false, // start
+            true,  // check
+            true,  // ...
+            true,
+            true,
+            false // complete
+        );
+        $run->shouldReceive('poll')->andReturn(
+            true,  // check
+            true,  // ...
+            true,
+            true,
+            false // complete
+        );
+        $run->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(false);
+
+        $startedEvent = $completedEvent = $updatedEvent = null;
+        $failedEvents = [];
+
+        $run->allows()->addListener(
+            RunEvent::STARTED,
+            Mockery::on(function (callable $callback) use (&$startedEvent) {
+                $startedEvent = $callback;
+                return true;
+            })
+        );
+        $run->allows()->addListener(
+            RunEvent::COMPLETED,
+            Mockery::on(function (callable $callback) use (&$completedEvent) {
+                $completedEvent = $callback;
+                return true;
+            })
+        );
+        $run->allows()->addListener(
+            RunEvent::FAILED,
+            Mockery::on(function (callable $callback) use (&$failedEvents) {
+                $failedEvents[] = $callback;
+                return true;
+            })
+        );
+        $run->allows()->addListener(
+            RunEvent::UPDATED,
+            Mockery::on(function (callable $callback) use (&$updatedEvent) {
+                $updatedEvent = $callback;
+                return true;
+            })
+        );
+        $run->allows(['getTags' => ['key' => 'value'], 'getProgress' => null]);
+
+        $this->pool->add($run);
+
+        $this->lines->run(0);
+
+        $run->allows()->getDuration()->andReturns(0, 0.1);
+
+        $run->allows()->getExceptions()->andReturns([new Exception('some error', 5)]);
+
+        call_user_func($startedEvent, new RunEvent($run));
+        foreach ($failedEvents as $failedEvent) {
+            call_user_func($failedEvent, new RunEvent($run));
+        }
+
+        $expected = [
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <fg=blue>→ Started</>%'],
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <error>x Failed</error> \(5\) some error%'],
+            ['%some error%'],
+        ];
+
+        $this->compareOutputs($expected, $this->bufferOutput->getWritten());
+    }
+
+    public function testRunFailureWithNoException()
+    {
+        $run = Mockery::mock(RunInterface::class);
+        $run->shouldReceive('stop');
+        $run->shouldReceive('start')->once();
+        $run->shouldReceive('hasStarted')->andReturn(true);
+        $run->shouldReceive('isRunning')->andReturn(
+            false, // add
+            false, // start
+            true,  // check
+            true,  // ...
+            true,
+            true,
+            false // complete
+        );
+        $run->shouldReceive('poll')->andReturn(
+            true,  // check
+            true,  // ...
+            true,
+            true,
+            false // complete
+        );
+        $run->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(false);
+
+        $startedEvent = $completedEvent = $updatedEvent = null;
+        $failedEvents = [];
+
+        $run->allows()->addListener(
+            RunEvent::STARTED,
+            Mockery::on(function (callable $callback) use (&$startedEvent) {
+                $startedEvent = $callback;
+                return true;
+            })
+        );
+        $run->allows()->addListener(
+            RunEvent::COMPLETED,
+            Mockery::on(function (callable $callback) use (&$completedEvent) {
+                $completedEvent = $callback;
+                return true;
+            })
+        );
+        $run->allows()->addListener(
+            RunEvent::FAILED,
+            Mockery::on(function (callable $callback) use (&$failedEvents) {
+                $failedEvents[] = $callback;
+                return true;
+            })
+        );
+        $run->allows()->addListener(
+            RunEvent::UPDATED,
+            Mockery::on(function (callable $callback) use (&$updatedEvent) {
+                $updatedEvent = $callback;
+                return true;
+            })
+        );
+        $run->allows(['getTags' => ['key' => 'value'], 'getProgress' => null]);
+
+        $this->pool->add($run);
+
+        $this->lines->run(0);
+
+        $run->allows()->getDuration()->andReturns(0, 0.1);
+
+        $run->allows()->getExceptions()->andReturns([]);
+
+        call_user_func($startedEvent, new RunEvent($run));
+        foreach ($failedEvents as $failedEvent) {
+            call_user_func($failedEvent, new RunEvent($run));
+        }
+
+        $expected = [
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <fg=blue>→ Started</>%'],
+            ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <error>x Failed</error>%'],
         ];
 
         $this->compareOutputs($expected, $this->bufferOutput->getWritten());

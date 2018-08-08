@@ -3,7 +3,7 @@
 /**
  * This file is part of graze/parallel-process.
  *
- * Copyright (c) 2017 Nature Delivered Ltd. <https://www.graze.com>
+ * Copyright © 2018 Nature Delivered Ltd. <https://www.graze.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -97,7 +97,7 @@ class PoolMaxSimultaneousTest extends TestCase
 
     public function testAddingTooManyProcessesPutsThemOnTheWaitingList()
     {
-        $pool = new Pool([], null, null, null, null, 1);
+        $pool = new Pool([], 1);
         $this->assertEquals(1, $pool->getMaxSimultaneous());
 
         $pool->add($this->process);

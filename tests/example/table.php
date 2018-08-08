@@ -3,7 +3,7 @@
 /**
  * This file is part of graze/parallel-process.
  *
- * Copyright (c) 2017 Nature Delivered Ltd. <https://www.graze.com>
+ * Copyright © 2018 Nature Delivered Ltd. <https://www.graze.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -23,9 +23,9 @@ $output = new ConsoleOutput(ConsoleOutput::VERBOSITY_VERY_VERBOSE);
 
 $pool = new \Graze\ParallelProcess\Pool();
 $pool->setMaxSimultaneous(3);
-$table = new Table($output, $pool);
 for ($i = 0; $i < 5; $i++) {
     $time = $i + 5;
-    $table->add(new Process(sprintf('for i in `seq 1 %d` ; do date ; sleep 1 ; done', $time)), ['sleep' => $time]);
+    $pool->add(new Process(sprintf('for i in `seq 1 %d` ; do date ; sleep 1 ; done', $time)), ['sleep' => $time]);
 }
+$table = new Table($output, $pool);
 $table->run();

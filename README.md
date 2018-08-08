@@ -15,8 +15,14 @@ Run multiple `Synfony\Process`'s at the same time.
 
 Via Composer
 
-``` bash
+```bash
 $ composer require graze/parallel-process
+```
+
+If you want to use Tables or Lines to output to the console, include:
+
+```bash
+$ composer require graze/console-diff-renderer
 ```
 
 ## Usage
@@ -41,11 +47,12 @@ $pool->run(); // blocking that will run till it finishes
 Visual output of the parallel processes
 
 ```php
-$table = new Table($output);
+$pool = new \Graze\ParallelProcess\Pool();
 for ($i = 0; $i < 5; $i++) {
     $time = $i + 5;
-    $table->add(new Process(sprintf('for i in `seq 1 %d` ; do date ; sleep 1 ; done', $time)), ['sleep' => $time]);
+    $pool->add(new Process(sprintf('for i in `seq 1 %d` ; do date ; sleep 1 ; done', $time)), ['sleep' => $time]);
 }
+$table = new \Graze\ParallelProcess\Table($output, $pool);
 $table->run();
 ```
 
@@ -58,11 +65,11 @@ Write the output of each process to the screen
 ```php
 $pool = new \Graze\ParallelProcess\Pool();
 $pool->setMaxSimultaneous(3);
-$lines = new Lines($output, $pool);
 for ($i = 0; $i < 5; $i++) {
     $time = $i + 5;
-    $lines->add(new Process(sprintf('for i in `seq 1 %d` ; do date ; sleep 1 ; done', $time)), ['sleep' . $time]);
+    $pool->add(new Process(sprintf('for i in `seq 1 %d` ; do date ; sleep 1 ; done', $time)), ['sleep' . $time]);
 }
+$lines = new \Graze\ParallelProcess\Lines($output, $pool);
 $lines->run();
 ```
 

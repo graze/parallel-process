@@ -1,6 +1,6 @@
 SHELL = /bin/sh
 
-DOCKER ?= $(shell which docker)
+DOCKER = $(shell which docker)
 PHP_VER := 7.2
 IMAGE := graze/php-alpine:${PHP_VER}-test
 VOLUME := /srv
@@ -9,8 +9,9 @@ DOCKER_RUN := ${DOCKER_RUN_BASE} ${IMAGE}
 
 PREFER_LOWEST ?=
 
-.PHONY: install composer clean help run
-.PHONY: test lint lint-fix test-unit test-integration test-matrix test-coverage test-coverage-html test-coverage-clover
+.PHONY: build build-update composer-% clean help run
+.PHONY: lint lint-fix
+.PHONY: test test-unit test-integration test-lowest test-matrix test-coverage test-coverage-html test-coverage-clover
 
 .SILENT: help
 
@@ -36,7 +37,7 @@ composer-%: ## Run a composer command, `make "composer-<command> [...]"`.
 
 # Testing
 
-test: ## Run the unit testsuites.
+test: ## Run the unit and integration testsuites.
 test: lint test-unit
 
 lint: ## Run phpcs against the code.
@@ -46,7 +47,11 @@ lint-fix: ## Run phpcsf and fix possible lint errors.
 	${DOCKER_RUN} vendor/bin/phpcbf -p src/ tests/
 
 test-unit: ## Run the unit testsuite.
-	${DOCKER_RUN} vendor/bin/phpunit --colors=always --testsuite unit
+	${DOCKER_RUN} vendor/bin/phpunit --testsuite unit
+
+test-lowest: ## Test using the lowest possible versions of the dependencies
+test-lowest: PREFER_LOWEST=--prefer-lowest
+test-lowest: build-update test
 
 test-matrix-lowest: ## Test all version, with the lowest version
 	${MAKE} test-matrix PREFER_LOWEST=--prefer-lowest
@@ -59,13 +64,22 @@ test-matrix: ## Run the unit tests against multiple targets.
 	${MAKE} PHP_VER="7.2" build-update test
 
 test-coverage: ## Run all tests and output coverage to the console.
-	${DOCKER_RUN_BASE} ${IMAGE} phpdbg7 -qrr vendor/bin/phpunit --coverage-text
+	${DOCKER_RUN} phpdbg7 -qrr vendor/bin/phpunit --coverage-text
 
 test-coverage-html: ## Run all tests and output coverage to html.
-	${DOCKER_RUN_BASE} ${IMAGE} phpdbg7 -qrr vendor/bin/phpunit --coverage-html=./tests/report/html
+	${DOCKER_RUN} phpdbg7 -qrr vendor/bin/phpunit --coverage-html=./tests/report/html
 
 test-coverage-clover: ## Run all tests and output clover coverage to file.
-	${DOCKER_RUN_BASE} ${IMAGE} phpdbg7 -qrr vendor/bin/phpunit --coverage-clover=./tests/report/coverage.clover
+	${DOCKER_RUN} phpdbg7 -qrr vendor/bin/phpunit --coverage-clover=./tests/report/coverage.clover
+
+
+# Examples
+
+example-lines: ## Run the lines example
+	${DOCKER_RUN} php tests/example/lines.php
+
+example-table: ## Run the table example
+	${DOCKER_RUN} php tests/example/table.php
 
 # Help
 

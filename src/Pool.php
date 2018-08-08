@@ -2,7 +2,7 @@
 /**
  * This file is part of graze/parallel-process.
  *
- * Copyright (c) 2017 Nature Delivered Ltd. <https://www.graze.com>
+ * Copyright © 2018 Nature Delivered Ltd. <https://www.graze.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -13,13 +13,20 @@
 
 namespace Graze\ParallelProcess;
 
+use Exception;
 use Graze\DataStructure\Collection\Collection;
+use Graze\ParallelProcess\Event\EventDispatcherTrait;
+use Graze\ParallelProcess\Event\PoolRunEvent;
+use Graze\ParallelProcess\Event\RunEvent;
 use Graze\ParallelProcess\Exceptions\NotRunningException;
 use InvalidArgumentException;
 use Symfony\Component\Process\Process;
+use Throwable;
 
 class Pool extends Collection implements RunInterface
 {
+    use EventDispatcherTrait;
+
     const CHECK_INTERVAL = 0.1;
     const NO_MAX         = -1;
 
@@ -29,18 +36,20 @@ class Pool extends Collection implements RunInterface
     protected $running = [];
     /** @var RunInterface[] */
     protected $waiting = [];
-    /** @var callable|null */
-    protected $onSuccess;
-    /** @var callable|null */
-    protected $onFailure;
-    /** @var callable|null */
-    protected $onProgress;
-    /** @var callable|null */
-    protected $onStart;
+    /** @var RunInterface[] */
+    protected $finished = [];
+    /** @var float */
+    private $started;
+    /** @var float */
+    private $finishedTime;
     /** @var int */
     private $maxSimultaneous = -1;
     /** @var bool */
     private $runInstantly = false;
+    /** @var string[] */
+    private $tags;
+    /** @var Exception[]|Throwable[] */
+    private $exceptions = [];
 
     /**
      * Pool constructor.
@@ -48,100 +57,55 @@ class Pool extends Collection implements RunInterface
      * Set the default callbacks here
      *
      * @param RunInterface[]|Process[] $items
-     * @param callable|null            $onSuccess       function (Process $process, float $duration, string $last,
-     *                                                  string $lastType) : void
-     * @param callable|null            $onFailure       function (Process $process, float $duration, string $last,
-     *                                                  string $lastType) : void
-     * @param callable|null            $onProgress      function (Process $process, float $duration, string $last,
-     *                                                  string $lastType) : void
-     * @param callable|null            $onStart         function (Process $process, float $duration, string $last,
-     *                                                  string $lastType) : void
      * @param int                      $maxSimultaneous Maximum number of simulatneous processes
      * @param bool                     $runInstantly    Run any added processes immediately if they are not already
      *                                                  running
+     * @param array                    $tags
      */
     public function __construct(
         array $items = [],
-        callable $onSuccess = null,
-        callable $onFailure = null,
-        callable $onProgress = null,
-        callable $onStart = null,
         $maxSimultaneous = self::NO_MAX,
-        $runInstantly = false
+        $runInstantly = false,
+        array $tags = []
     ) {
         parent::__construct($items);
 
-        $this->onSuccess = $onSuccess;
-        $this->onFailure = $onFailure;
-        $this->onProgress = $onProgress;
-        $this->onStart = $onStart;
         $this->maxSimultaneous = $maxSimultaneous;
         $this->runInstantly = $runInstantly;
 
         if ($this->runInstantly) {
             $this->start();
         }
+        $this->tags = $tags;
     }
 
     /**
-     * @param callable|null $onSuccess function (Process $process, float $duration, string $last, string $lastType) :
-     *                                 void
-     *
-     * @return $this
+     * @return string[]
      */
-    public function setOnSuccess($onSuccess)
+    protected function getEventNames()
     {
-        $this->onSuccess = $onSuccess;
-        return $this;
-    }
-
-    /**
-     * @param callable|null $onFailure function (Process $process, float $duration, string $last, string $lastType) :
-     *                                 void
-     *
-     * @return $this
-     */
-    public function setOnFailure($onFailure)
-    {
-        $this->onFailure = $onFailure;
-        return $this;
-    }
-
-    /**
-     * @param callable|null $onProgress function (Process $process, float $duration, string $last, string $lastType) :
-     *                                  void
-     *
-     * @return $this
-     */
-    public function setOnProgress($onProgress)
-    {
-        $this->onProgress = $onProgress;
-        return $this;
-    }
-
-    /**
-     * @param callable|null $onStart function (Process $process, float $duration, string $last, string $lastType) :
-     *                               void
-     *
-     * @return $this
-     */
-    public function setOnStart($onStart)
-    {
-        $this->onStart = $onStart;
-        return $this;
+        return [
+            RunEvent::STARTED,
+            RunEvent::COMPLETED,
+            RunEvent::FAILED,
+            RunEvent::UPDATED,
+            PoolRunEvent::POOL_RUN_ADDED,
+        ];
     }
 
     /**
      * Add a new process to the pool
      *
      * @param RunInterface|Process $item
+     * @param array                $tags If a process is supplied, these are added to create a run.
+     *                                   This is ignored when adding a run
      *
      * @return $this
      */
-    public function add($item)
+    public function add($item, array $tags = [])
     {
         if ($item instanceof Process) {
-            return $this->addProcess($item);
+            return $this->addProcess($item, $tags);
         }
 
         if (!$item instanceof RunInterface) {
@@ -154,6 +118,14 @@ class Pool extends Collection implements RunInterface
 
         parent::add($item);
 
+        $this->dispatch(PoolRunEvent::POOL_RUN_ADDED, new PoolRunEvent($this, $item));
+        $item->addListener(
+            RunEvent::FAILED,
+            function (RunEvent $event) {
+                $this->exceptions += $event->getRun()->getExceptions();
+            }
+        );
+
         if ($this->isRunning() || $this->runInstantly) {
             $this->startRun($item);
         }
@@ -165,20 +137,13 @@ class Pool extends Collection implements RunInterface
      * Add a new process to the pool using the default callbacks
      *
      * @param Process $process
+     * @param array   $tags
      *
      * @return $this
      */
-    protected function addProcess(Process $process)
+    private function addProcess(Process $process, array $tags = [])
     {
-        return $this->add(
-            new Run(
-                $process,
-                $this->onSuccess,
-                $this->onFailure,
-                $this->onProgress,
-                $this->onStart
-            )
-        );
+        return $this->add(new Run($process, $tags));
     }
 
     /**
@@ -190,6 +155,11 @@ class Pool extends Collection implements RunInterface
     {
         foreach ($this->items as $run) {
             $this->startRun($run);
+        }
+
+        if (count($this->running) > 0) {
+            $this->started = microtime(true);
+            $this->dispatch(RunEvent::STARTED, new RunEvent($this));
         }
 
         return $this;
@@ -205,6 +175,10 @@ class Pool extends Collection implements RunInterface
         if ($this->maxSimultaneous === static::NO_MAX || count($this->running) < $this->maxSimultaneous) {
             $run->start();
             $this->running[] = $run;
+            if (is_null($this->started)) {
+                $this->started = microtime(true);
+                $this->dispatch(RunEvent::STARTED, new RunEvent($this));
+            }
         } else {
             $this->waiting[] = $run;
         }
@@ -267,17 +241,29 @@ class Pool extends Collection implements RunInterface
      */
     public function poll()
     {
-        /** @var Run[] $running */
-        $this->running = array_filter(
-            $this->running,
-            function (RunInterface $run) {
-                return $run->poll();
+        foreach ($this->running as $i => $run) {
+            if (!$run->poll()) {
+                $this->finished[] = $run;
+                $this->running[$i] = null;
             }
-        );
+        }
+        $this->running = array_filter($this->running);
 
         $this->checkFinished();
 
-        return $this->isRunning();
+        $this->dispatch(RunEvent::UPDATED, new RunEvent($this));
+
+        if (!$this->isRunning()) {
+            $this->finishedTime = microtime(true);
+            if ($this->isSuccessful()) {
+                $this->dispatch(RunEvent::COMPLETED, new RunEvent($this));
+            } else {
+                $this->dispatch(RunEvent::FAILED, new RunEvent($this));
+            }
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -329,6 +315,16 @@ class Pool extends Collection implements RunInterface
     }
 
     /**
+     * Get a list of all the current waiting runs
+     *
+     * @return RunInterface[]
+     */
+    public function getFinished()
+    {
+        return $this->finished;
+    }
+
+    /**
      * @return int
      */
     public function getMaxSimultaneous()
@@ -364,5 +360,46 @@ class Pool extends Collection implements RunInterface
     {
         $this->runInstantly = $runInstantly;
         return $this;
+    }
+
+    /**
+     * Get a set of tags associated with this run
+     *
+     * @return array
+     */
+    public function getTags()
+    {
+        return $this->tags;
+    }
+
+    /**
+     * @return float number of seconds this run has been running or did run for (0 for not started)
+     */
+    public function getDuration()
+    {
+        if ($this->isRunning()) {
+            return microtime(true) - $this->started;
+        } elseif (!$this->hasStarted()) {
+            return 0;
+        }
+        return $this->finishedTime - $this->started;
+    }
+
+    /**
+     * @return float[]|null an array of values of the current position, max, and percentage. null if not applicable
+     */
+    public function getProgress()
+    {
+        return [count($this->finished), count($this->items), count($this->finished) / count($this->items)];
+    }
+
+    /**
+     * If the run was unsuccessful, get the error if applicable
+     *
+     * @return Exception[]|Throwable[]
+     */
+    public function getExceptions()
+    {
+        return $this->exceptions;
     }
 }

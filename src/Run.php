@@ -1,27 +1,37 @@
 <?php
+/**
+ * This file is part of graze/parallel-process.
+ *
+ * Copyright © 2018 Nature Delivered Ltd. <https://www.graze.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ *
+ * @license https://github.com/graze/parallel-process/blob/master/LICENSE.md
+ * @link    https://github.com/graze/parallel-process
+ */
 
 namespace Graze\ParallelProcess;
 
+use Exception;
+use Graze\ParallelProcess\Event\EventDispatcherTrait;
+use Graze\ParallelProcess\Event\RunEvent;
+use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
+use Throwable;
 
 class Run implements RunInterface
 {
+    use EventDispatcherTrait;
+
     const ON_SUCCESS  = 1;
     const ON_FAILURE  = 2;
     const ON_PROGRESS = 3;
 
     /** @var Process */
     private $process;
-    /** @var callable|null */
-    private $onSuccess;
-    /** @var callable|null */
-    private $onFailure;
-    /** @var callable|null */
-    private $onProgress;
-    /** @var callable|null */
-    private $onStart;
     /** @var float */
-    private $started;
+    private $started = 0;
     /** @var bool */
     private $successful = false;
     /** @var bool */
@@ -34,36 +44,32 @@ class Run implements RunInterface
     private $updateOnPoll = true;
     /** @var bool */
     private $updateOnProcessOutput = true;
+    /** @var array */
+    private $tags;
 
     /**
      * Run constructor.
      *
-     * @param Process       $process
-     * @param callable|null $onSuccess  When the process finishes and is successful
-     *                                  function (Process $process, float $duration, string $last, string $lastType) :
-     *                                  void
-     * @param callable|null $onFailure  When the process finishes and failed
-     *                                  function (Process $process, float $duration, string $last, string $lastType) :
-     *                                  void
-     * @param callable|null $onProgress Called every check period or a message is returned from the process
-     *                                  function (Process $process, float $duration, string $last, string $lastType) :
-     *                                  void
-     * @param callable|null $onStart    When the process starts
-     *                                  function (Process $process, float $duration, string $last, string $lastType) :
-     *                                  void
+     * @param Process $process
+     * @param array   $tags List of key value tags associated with this run
      */
-    public function __construct(
-        Process $process,
-        callable $onSuccess = null,
-        callable $onFailure = null,
-        callable $onProgress = null,
-        callable $onStart = null
-    ) {
+    public function __construct(Process $process, array $tags = [])
+    {
         $this->process = $process;
-        $this->onSuccess = $onSuccess;
-        $this->onFailure = $onFailure;
-        $this->onProgress = $onProgress;
-        $this->onStart = $onStart;
+        $this->tags = $tags;
+    }
+
+    /**
+     * @return string[]
+     */
+    protected function getEventNames()
+    {
+        return [
+            RunEvent::STARTED,
+            RunEvent::COMPLETED,
+            RunEvent::FAILED,
+            RunEvent::UPDATED,
+        ];
     }
 
     /**
@@ -75,14 +81,17 @@ class Run implements RunInterface
     {
         if (!$this->process->isRunning()) {
             $this->started = microtime(true);
-            $this->update($this->onStart);
+            $this->dispatch(RunEvent::STARTED, new RunEvent($this));
             $this->process->start(
                 function ($type, $data) {
                     $this->lastType = $type;
                     foreach (explode("\n", $data) as $line) {
-                        $this->last = rtrim($line);
-                        if (mb_strlen($this->last) > 0 && $this->updateOnProcessOutput) {
-                            $this->update($this->onProgress);
+                        $line = rtrim($line);
+                        if (mb_strlen($line) > 0) {
+                            $this->last = $line;
+                            if ($this->updateOnProcessOutput) {
+                                $this->dispatch(RunEvent::UPDATED, new RunEvent($this));
+                            }
                         }
                     }
                 }
@@ -106,7 +115,7 @@ class Run implements RunInterface
 
         if ($this->process->isRunning()) {
             if ($this->updateOnPoll) {
-                $this->update($this->onProgress);
+                $this->dispatch(RunEvent::UPDATED, new RunEvent($this));
             }
             return true;
         }
@@ -115,9 +124,9 @@ class Run implements RunInterface
 
         if ($this->process->isSuccessful()) {
             $this->successful = true;
-            $this->update($this->onSuccess);
+            $this->dispatch(RunEvent::COMPLETED, new RunEvent($this));
         } else {
-            $this->update($this->onFailure);
+            $this->dispatch(RunEvent::FAILED, new RunEvent($this));
         }
         return false;
     }
@@ -130,24 +139,6 @@ class Run implements RunInterface
     public function isRunning()
     {
         return $this->process->isRunning();
-    }
-
-    /**
-     * Call an event callback
-     *
-     * @param callable|null $func
-     */
-    protected function update($func)
-    {
-        if (!is_null($func)) {
-            call_user_func(
-                $func,
-                $this->process,
-                microtime(true) - $this->started,
-                $this->last,
-                $this->lastType
-            );
-        }
     }
 
     /**
@@ -210,5 +201,58 @@ class Run implements RunInterface
     public function isUpdateOnProcessOutput()
     {
         return $this->updateOnProcessOutput;
+    }
+
+    /**
+     * @return array
+     */
+    public function getTags()
+    {
+        return $this->tags;
+    }
+
+    /**
+     * @return float number of seconds this run has been running for (0 for not started)
+     */
+    public function getDuration()
+    {
+        return $this->started > 0 ? microtime(true) - $this->started : 0;
+    }
+
+    /**
+     * @return float[]|null the process between 0 and 1 if the run supports it, otherwise null
+     */
+    public function getProgress()
+    {
+        return null;
+    }
+
+    /**
+     * @return string
+     */
+    public function getLastMessage()
+    {
+        return $this->last;
+    }
+
+    /**
+     * @return string
+     */
+    public function getLastMessageType()
+    {
+        return $this->lastType;
+    }
+
+    /**
+     * If the run was unsuccessful, get the error if applicable
+     *
+     * @return Exception[]|Throwable[]
+     */
+    public function getExceptions()
+    {
+        if ($this->hasStarted() && !$this->isSuccessful()) {
+            return [new ProcessFailedException($this->process)];
+        }
+        return [];
     }
 }
