@@ -78,7 +78,7 @@ class Table
     private function formatRow(RunInterface $run, $status)
     {
         $tags = $this->formatTags($run->getTags());
-        $extra = ($this->showOutput && $run instanceof Run && mb_strlen($run->getLastMessage()) > 0)
+        $extra = ($this->showOutput && $run instanceof OutputterInterface && mb_strlen($run->getLastMessage()) > 0)
             ? '  ' . $this->terminal->filter($run->getLastMessage())
             : '';
         return sprintf("%s (<comment>%6.2fs</comment>) %s%s", $tags, $run->getDuration(), $status, $extra);

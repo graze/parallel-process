@@ -20,13 +20,9 @@ use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
 use Throwable;
 
-class Run implements RunInterface
+class Run implements RunInterface, OutputterInterface
 {
     use EventDispatcherTrait;
-
-    const ON_SUCCESS  = 1;
-    const ON_FAILURE  = 2;
-    const ON_PROGRESS = 3;
 
     /** @var Process */
     private $process;
@@ -44,14 +40,14 @@ class Run implements RunInterface
     private $updateOnPoll = true;
     /** @var bool */
     private $updateOnProcessOutput = true;
-    /** @var array */
+    /** @var string[] */
     private $tags;
 
     /**
      * Run constructor.
      *
-     * @param Process $process
-     * @param array   $tags List of key value tags associated with this run
+     * @param Process  $process
+     * @param string[] $tags List of key value tags associated with this run
      */
     public function __construct(Process $process, array $tags = [])
     {

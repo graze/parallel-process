@@ -167,8 +167,8 @@ class Lines
             function (RunEvent $event) use ($index) {
                 $run = $event->getRun();
                 $message = '';
-                if ($run instanceof Run) {
-                    $message = ($this->showType && $run instanceof Run)
+                if ($run instanceof OutputterInterface) {
+                    $message = ($this->showType && $run->getLastMessageType() !== '')
                         ? sprintf('(%s) %s', $run->getLastMessageType(), $run->getLastMessage())
                         : $run->getLastMessage();
                 }
