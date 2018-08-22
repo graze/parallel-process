@@ -40,6 +40,7 @@ class CallbackRunTest extends TestCase
         $this->assertFalse($run->isRunning(), 'should not be running');
         $this->assertFalse($run->hasStarted(), 'should not have started');
         $this->assertFalse($run->isSuccessful(), 'should not be successful');
+        $this->assertEquals(0, $run->getDuration());
         $this->assertEquals([], $run->getExceptions(), 'no exceptions should be returned');
         $this->assertEquals([], $run->getTags(), 'no tags should be returned');
         $this->assertEquals('', $run->getLastMessageType());
@@ -57,6 +58,8 @@ class CallbackRunTest extends TestCase
         $this->assertFalse($run->poll());
         $this->assertTrue($run->isSuccessful());
         $this->assertTrue($run->hasStarted());
+        $this->assertFalse($run->isRunning());
+        $this->assertGreaterThan(0, $run->getDuration());
     }
 
     public function testOnStart()
