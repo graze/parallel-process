@@ -161,7 +161,7 @@ class CallbackRun implements RunInterface, OutputterInterface
      */
     public function getDuration()
     {
-        return $this->started > 0 ? microtime(true) - $this->started : 0;
+        return $this->started > 0 ? ($this->finished > 0 ? $this->finished : microtime(true)) - $this->started : 0;
     }
 
     /**

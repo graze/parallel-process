@@ -41,6 +41,9 @@ class CallbackRunTest extends TestCase
         $this->assertFalse($run->hasStarted(), 'should not have started');
         $this->assertFalse($run->isSuccessful(), 'should not be successful');
         $this->assertEquals([], $run->getExceptions(), 'no exceptions should be returned');
+        $this->assertEquals([], $run->getTags(), 'no tags should be returned');
+        $this->assertEquals('', $run->getLastMessageType());
+        $this->assertEquals('', $run->getLastMessage());
     }
 
     public function testRun()
@@ -127,6 +130,7 @@ class CallbackRunTest extends TestCase
             function (RunEvent $event) use (&$run, &$hit) {
                 $this->assertSame($event->getRun(), $run);
                 $this->assertContains($run->getLastMessage(), ['line 1', 'line 2']);
+                $this->assertNull($run->getProgress());
                 $hit = true;
             }
         );
