@@ -70,7 +70,7 @@ class CallbackRun implements RunInterface, OutputterInterface
      */
     public function start()
     {
-        if ($this->started === 0) {
+        if ($this->started == 0) {
             $this->started = microtime(true);
             $this->dispatch(RunEvent::STARTED, new RunEvent($this));
             try {
