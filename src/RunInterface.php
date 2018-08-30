@@ -88,4 +88,9 @@ interface RunInterface
      * @return float[]|null an array of values of the current position, max, and percentage. null if not applicable
      */
     public function getProgress();
+
+    /**
+     * @return float The priority for this run, where the larger the number the higher the priority
+     */
+    public function getPriority();
 }

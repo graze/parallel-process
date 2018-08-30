@@ -20,10 +20,11 @@ use Graze\ParallelProcess\Event\PoolRunEvent;
 use Graze\ParallelProcess\Event\RunEvent;
 use Graze\ParallelProcess\Exceptions\NotRunningException;
 use InvalidArgumentException;
+use SplPriorityQueue;
 use Symfony\Component\Process\Process;
 use Throwable;
 
-class Pool extends Collection implements RunInterface
+class Pool extends Collection implements RunInterface, PoolInterface
 {
     use EventDispatcherTrait;
 
@@ -34,7 +35,7 @@ class Pool extends Collection implements RunInterface
     protected $items = [];
     /** @var RunInterface[] */
     protected $running = [];
-    /** @var RunInterface[] */
+    /** @var SplPriorityQueue */
     protected $waiting = [];
     /** @var RunInterface[] */
     protected $finished = [];
@@ -50,33 +51,51 @@ class Pool extends Collection implements RunInterface
     private $tags;
     /** @var Exception[]|Throwable[] */
     private $exceptions = [];
+    /** @var float */
+    private $priority;
 
     /**
      * Pool constructor.
      *
-     * Set the default callbacks here
-     *
      * @param RunInterface[]|Process[] $items
-     * @param int                      $maxSimultaneous Maximum number of simulatneous processes
+     * @param int                      $maxSimultaneous Maximum number of simultaneous processes
      * @param bool                     $runInstantly    Run any added processes immediately if they are not already
      *                                                  running
      * @param array                    $tags
+     * @param float                    $priority
      */
     public function __construct(
         array $items = [],
         $maxSimultaneous = self::NO_MAX,
         $runInstantly = false,
-        array $tags = []
+        array $tags = [],
+        $priority = 1.0
     ) {
-        parent::__construct($items);
+        parent::__construct([]);
 
         $this->maxSimultaneous = $maxSimultaneous;
         $this->runInstantly = $runInstantly;
+        $this->tags = $tags;
+        $this->waiting = new SplPriorityQueue();
+        $this->waiting->setExtractFlags(SplPriorityQueue::EXTR_DATA);
+        $this->priority = $priority;
 
         if ($this->runInstantly) {
             $this->start();
         }
-        $this->tags = $tags;
+
+        array_map([$this, 'add'], $items);
+    }
+
+    /**
+     * @param float $priority
+     *
+     * @return Pool
+     */
+    public function setPriority($priority)
+    {
+        $this->priority = $priority;
+        return $this;
     }
 
     /**
@@ -87,6 +106,7 @@ class Pool extends Collection implements RunInterface
         return [
             RunEvent::STARTED,
             RunEvent::COMPLETED,
+            RunEvent::SUCCESSFUL,
             RunEvent::FAILED,
             RunEvent::UPDATED,
             PoolRunEvent::POOL_RUN_ADDED,
@@ -117,6 +137,11 @@ class Pool extends Collection implements RunInterface
         }
 
         parent::add($item);
+        if ($item->isRunning()) {
+            $this->running[] = $item;
+        } else {
+            $this->waiting->insert($item, $item->getPriority());
+        }
 
         $this->dispatch(PoolRunEvent::POOL_RUN_ADDED, new PoolRunEvent($this, $item));
         $item->addListener(
@@ -125,10 +150,6 @@ class Pool extends Collection implements RunInterface
                 $this->exceptions += $event->getRun()->getExceptions();
             }
         );
-
-        if ($this->isRunning() || $this->runInstantly) {
-            $this->startRun($item);
-        }
 
         return $this;
     }
@@ -153,35 +174,9 @@ class Pool extends Collection implements RunInterface
      */
     public function start()
     {
-        foreach ($this->items as $run) {
-            $this->startRun($run);
-        }
-
-        if (count($this->running) > 0) {
-            $this->started = microtime(true);
-            $this->dispatch(RunEvent::STARTED, new RunEvent($this));
-        }
+        $this->startNext();
 
         return $this;
-    }
-
-    /**
-     * Start a run (or queue it if we are running the maximum number of processes already)
-     *
-     * @param RunInterface $run
-     */
-    private function startRun(RunInterface $run)
-    {
-        if ($this->maxSimultaneous === static::NO_MAX || count($this->running) < $this->maxSimultaneous) {
-            $run->start();
-            $this->running[] = $run;
-            if (is_null($this->started)) {
-                $this->started = microtime(true);
-                $this->dispatch(RunEvent::STARTED, new RunEvent($this));
-            }
-        } else {
-            $this->waiting[] = $run;
-        }
     }
 
     /**
@@ -193,7 +188,7 @@ class Pool extends Collection implements RunInterface
      */
     public function run($checkInterval = self::CHECK_INTERVAL)
     {
-        $this->start();
+        $this->startNext();
 
         $interval = (int) ($checkInterval * 1000000);
         while ($this->poll()) {
@@ -204,17 +199,34 @@ class Pool extends Collection implements RunInterface
     }
 
     /**
+     * Actually start a run
+     *
+     * @param RunInterface $run
+     */
+    private function startRun(RunInterface $run)
+    {
+        $run->start();
+        $this->running[] = $run;
+        if (is_null($this->started)) {
+            $this->started = microtime(true);
+            $this->dispatch(RunEvent::STARTED, new RunEvent($this));
+        }
+    }
+
+    /**
      * Check when a run has finished, if there are processes waiting, start them
      */
-    private function checkFinished()
+    private function startNext()
     {
         if ($this->maxSimultaneous !== static::NO_MAX
-            && count($this->waiting) > 0
+            && $this->waiting->valid()
             && count($this->running) < $this->maxSimultaneous) {
-            for ($i = count($this->running); $i < $this->maxSimultaneous && count($this->waiting) > 0; $i++) {
-                $run = array_shift($this->waiting);
-                $run->start();
-                $this->running[] = $run;
+            for ($i = count($this->running); $i < $this->maxSimultaneous && $this->waiting->valid(); $i++) {
+                $this->startRun($this->waiting->extract());
+            }
+        } elseif ($this->maxSimultaneous === static::NO_MAX) {
+            while ($this->waiting->valid()) {
+                $this->startRun($this->waiting->extract());
             }
         }
     }
@@ -249,17 +261,18 @@ class Pool extends Collection implements RunInterface
         }
         $this->running = array_filter($this->running);
 
-        $this->checkFinished();
+        $this->startNext();
 
         $this->dispatch(RunEvent::UPDATED, new RunEvent($this));
 
         if (!$this->isRunning()) {
             $this->finishedTime = microtime(true);
             if ($this->isSuccessful()) {
-                $this->dispatch(RunEvent::COMPLETED, new RunEvent($this));
+                $this->dispatch(RunEvent::SUCCESSFUL, new RunEvent($this));
             } else {
                 $this->dispatch(RunEvent::FAILED, new RunEvent($this));
             }
+            $this->dispatch(RunEvent::COMPLETED, new RunEvent($this));
             return false;
         }
 
@@ -311,7 +324,7 @@ class Pool extends Collection implements RunInterface
      */
     public function getWaiting()
     {
-        return $this->waiting;
+        return iterator_to_array($this->waiting);
     }
 
     /**
@@ -401,5 +414,13 @@ class Pool extends Collection implements RunInterface
     public function getExceptions()
     {
         return $this->exceptions;
+    }
+
+    /**
+     * @return float The priority for this run, where the larger the number the higher the priority
+     */
+    public function getPriority()
+    {
+        return $this->priority;
     }
 }

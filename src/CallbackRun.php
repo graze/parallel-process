@@ -36,6 +36,8 @@ class CallbackRun implements RunInterface, OutputterInterface
     private $exception = null;
     /** @var string */
     private $last;
+    /** @var float */
+    private $priority;
 
     /**
      * Run constructor.
@@ -43,11 +45,24 @@ class CallbackRun implements RunInterface, OutputterInterface
      * @param callable $callback A callback to run, if this returns a string, it can be accessed from the
      *                           `->getLastMessage()` calls
      * @param string[] $tags     List of key value tags associated with this run
+     * @param float    $priority
      */
-    public function __construct(callable $callback, array $tags = [])
+    public function __construct(callable $callback, array $tags = [], $priority = 1.0)
     {
         $this->callback = $callback;
         $this->tags = $tags;
+        $this->priority = $priority;
+    }
+
+    /**
+     * @param float $priority
+     *
+     * @return CallbackRun
+     */
+    public function setPriority($priority)
+    {
+        $this->priority = $priority;
+        return $this;
     }
 
     /**
@@ -204,5 +219,13 @@ class CallbackRun implements RunInterface, OutputterInterface
     public function getLastMessageType()
     {
         return '';
+    }
+
+    /**
+     * @return float The priority for this run, where the larger the number the higher the priority
+     */
+    public function getPriority()
+    {
+        return $this->priority;
     }
 }

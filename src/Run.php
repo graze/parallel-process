@@ -42,17 +42,32 @@ class Run implements RunInterface, OutputterInterface
     private $updateOnProcessOutput = true;
     /** @var string[] */
     private $tags;
+    /** @var float */
+    private $priority;
 
     /**
      * Run constructor.
      *
      * @param Process  $process
      * @param string[] $tags List of key value tags associated with this run
+     * @param float    $priority
      */
-    public function __construct(Process $process, array $tags = [])
+    public function __construct(Process $process, array $tags = [], $priority = 1.0)
     {
         $this->process = $process;
         $this->tags = $tags;
+        $this->priority = $priority;
+    }
+
+    /**
+     * @param float $priority
+     *
+     * @return Run
+     */
+    public function setPriority($priority)
+    {
+        $this->priority = $priority;
+        return $this;
     }
 
     /**
@@ -65,6 +80,7 @@ class Run implements RunInterface, OutputterInterface
             RunEvent::COMPLETED,
             RunEvent::FAILED,
             RunEvent::UPDATED,
+            RunEvent::SUCCESSFUL,
         ];
     }
 
@@ -120,10 +136,12 @@ class Run implements RunInterface, OutputterInterface
 
         if ($this->process->isSuccessful()) {
             $this->successful = true;
-            $this->dispatch(RunEvent::COMPLETED, new RunEvent($this));
+            $this->dispatch(RunEvent::SUCCESSFUL, new RunEvent($this));
         } else {
             $this->dispatch(RunEvent::FAILED, new RunEvent($this));
         }
+        $this->dispatch(RunEvent::COMPLETED, new RunEvent($this));
+
         return false;
     }
 
@@ -250,5 +268,13 @@ class Run implements RunInterface, OutputterInterface
             return [new ProcessFailedException($this->process)];
         }
         return [];
+    }
+
+    /**
+     * @return float The priority for this run, where the larger the number the higher the priority
+     */
+    public function getPriority()
+    {
+        return $this->priority;
     }
 }
