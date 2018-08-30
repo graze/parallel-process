@@ -89,16 +89,20 @@ class CallbackRun implements RunInterface, OutputterInterface
             $this->started = microtime(true);
             $this->dispatch(RunEvent::STARTED, new RunEvent($this));
             try {
-                $output = call_user_func($this->callback);
-                $this->handleOutput($output);
-                $this->finished = microtime(true);
-                $this->successful = true;
+                try {
+                    $output = call_user_func($this->callback);
+                    $this->handleOutput($output);
+                    $this->finished = microtime(true);
+                    $this->successful = true;
+                    $this->dispatch(RunEvent::COMPLETED, new RunEvent($this));
+                } catch (Exception $e) {
+                    $this->finished = microtime(true);
+                    $this->successful = false;
+                    $this->exception = $e;
+                    $this->dispatch(RunEvent::FAILED, new RunEvent($this));
+                }
+            } finally {
                 $this->dispatch(RunEvent::COMPLETED, new RunEvent($this));
-            } catch (Exception $e) {
-                $this->finished = microtime(true);
-                $this->successful = false;
-                $this->exception = $e;
-                $this->dispatch(RunEvent::FAILED, new RunEvent($this));
             }
         }
 

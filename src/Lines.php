@@ -27,8 +27,8 @@ class Lines
     private $output;
     /** @var TerminalInterface */
     private $terminal;
-    /** @var Pool */
-    private $processPool;
+    /** @var PoolInterface */
+    private $pool;
     /** @var bool */
     private $showDuration = true;
     /** @var bool */
@@ -48,9 +48,9 @@ class Lines
      * Lines constructor.
      *
      * @param OutputInterface $output
-     * @param Pool|null       $pool
+     * @param PoolInterface|null       $pool
      */
-    public function __construct(OutputInterface $output, Pool $pool = null)
+    public function __construct(OutputInterface $output, PoolInterface $pool = null)
     {
         $this->output = $output;
         if (!$output instanceof DiffConsoleOutput) {
@@ -60,16 +60,16 @@ class Lines
             $this->output = $output;
         }
         $this->terminal = $this->output->getTerminal();
-        $this->processPool = $pool ?: new Pool();
+        $this->pool = $pool ?: new Pool();
 
-        $this->processPool->addListener(
+        $this->pool->addListener(
             PoolRunEvent::POOL_RUN_ADDED,
             function (PoolRunEvent $event) {
                 $this->add($event->getRun());
             }
         );
 
-        array_map([$this, 'add'], $this->processPool->getAll());
+        array_map([$this, 'add'], $this->pool->getAll());
     }
 
     /**
@@ -185,7 +185,7 @@ class Lines
             }
         );
         $run->addListener(
-            RunEvent::COMPLETED,
+            RunEvent::SUCCESSFUL,
             function (RunEvent $event) use ($index) {
                 $run = $event->getRun();
                 $this->output->writeln(
@@ -259,6 +259,6 @@ class Lines
      */
     public function run($checkInterval = Pool::CHECK_INTERVAL)
     {
-        return $this->processPool->run($checkInterval);
+        return $this->pool->run($checkInterval);
     }
 }

@@ -14,9 +14,10 @@
 namespace Graze\ParallelProcess;
 
 use Exception;
+use Graze\ParallelProcess\Event\DispatcherInterface;
 use Throwable;
 
-interface RunInterface
+interface RunInterface extends DispatcherInterface
 {
     /**
      * Has this run been started before
@@ -70,14 +71,6 @@ interface RunInterface
      * @return array
      */
     public function getTags();
-
-    /**
-     * @param string   $name    The name of the event: 'started', 'completed', 'failed', 'updated'
-     * @param callable $handler The handler for the event
-     *
-     * @return void
-     */
-    public function addListener($name, callable $handler);
 
     /**
      * @return float number of seconds this run has been running for (0 for not started)

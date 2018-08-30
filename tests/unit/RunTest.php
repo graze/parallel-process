@@ -86,13 +86,13 @@ class RunTest extends TestCase
         $run = new Run($process);
 
         $process->shouldReceive('isRunning')
-                ->andReturn(false, true);
+                ->andReturn(true); // check
         $process->shouldReceive('start');
 
-        $run->start();
-
         $process->shouldReceive('isStarted')
-                ->andReturn(true);
+                ->andReturn(false, true); // start, check
+
+        $run->start();
 
         $this->assertTrue($run->isRunning());
         $this->assertTrue($run->hasStarted());
@@ -106,16 +106,13 @@ class RunTest extends TestCase
 
         $run = new Run($process);
 
-        $process->shouldReceive('isRunning')
-                ->andReturn(false, true, false);
-
+        $process->shouldReceive('isRunning')->andReturn(true, false);
         $process->shouldReceive('start');
+        $process->shouldReceive('isStarted')->andReturn(false, true);
+
         $run->start();
 
-        $process->shouldReceive('isStarted')
-                ->andReturn(true);
-        $process->shouldReceive('isSuccessful')
-                ->andReturn(true);
+        $process->shouldReceive('isSuccessful')->andReturn(true);
 
         $this->assertTrue($run->poll());
         $this->assertFalse($run->poll());
@@ -140,7 +137,7 @@ class RunTest extends TestCase
         );
 
         $process->shouldReceive('start')->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, true);
         $process->shouldReceive('isRunning')->andReturn(false);
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
@@ -165,7 +162,7 @@ class RunTest extends TestCase
         );
 
         $process->shouldReceive('start')->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, true);
         $process->shouldReceive('isRunning')->andReturn(false);
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
@@ -190,7 +187,7 @@ class RunTest extends TestCase
         );
 
         $process->shouldReceive('start')->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, true);
         $process->shouldReceive('isRunning')->andReturn(false);
         $process->shouldReceive('isSuccessful')->once()->andReturn(false);
 
@@ -215,8 +212,8 @@ class RunTest extends TestCase
         );
 
         $process->shouldReceive('start')->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
-        $process->shouldReceive('isRunning')->andReturn(false, true, false);
+        $process->shouldReceive('isStarted')->andReturn(false, true);
+        $process->shouldReceive('isRunning')->andReturn(true, false);
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
         $run->start();
@@ -231,7 +228,7 @@ class RunTest extends TestCase
 
         $run = new Run($process);
 
-        $process->shouldReceive('isRunning')
+        $process->shouldReceive('isStarted')
                 ->andReturn(true);
 
         $this->assertSame($run, $run->start());
@@ -266,7 +263,7 @@ class RunTest extends TestCase
             }
         );
 
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, true);
         $process->shouldReceive('isRunning')->andReturn(false);
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
@@ -304,7 +301,7 @@ class RunTest extends TestCase
             }
         );
 
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, true);
         $process->shouldReceive('isRunning')->andReturn(false);
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
@@ -329,8 +326,8 @@ class RunTest extends TestCase
         );
         $run->setUpdateOnPoll(false);
 
-        $process->shouldReceive('isStarted')->andReturn(true);
-        $process->shouldReceive('isRunning')->andReturn(false, true, false);
+        $process->shouldReceive('isStarted')->andReturn(false, true);
+        $process->shouldReceive('isRunning')->andReturn(true, false);
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
         $run->start();
@@ -364,11 +361,22 @@ class RunTest extends TestCase
         );
         $run->setUpdateOnProcessOutput(false);
 
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, true);
         $process->shouldReceive('isRunning')->andReturn(false);
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
         $run->start();
         $this->assertFalse($run->poll());
+    }
+
+    public function testGetPriority()
+    {
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('stop');
+        $run = new Run($process, [], 1.5);
+
+        $this->assertEquals(1.5, $run->getPriority());
+        $this->assertSame($run, $run->setPriority(2));
+        $this->assertEquals(2, $run->getPriority());
     }
 }

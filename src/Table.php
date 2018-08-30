@@ -26,8 +26,8 @@ class Table
 
     const SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
 
-    /** @var Pool */
-    private $processPool;
+    /** @var PoolInterface */
+    private $pool;
     /** @var string[] */
     private $rows = [];
     /** @var Exception[] */
@@ -44,12 +44,12 @@ class Table
     /**
      * Table constructor.
      *
-     * @param OutputInterface $output
-     * @param Pool|null       $pool
+     * @param OutputInterface    $output
+     * @param PoolInterface|null $pool
      */
-    public function __construct(OutputInterface $output, Pool $pool = null)
+    public function __construct(OutputInterface $output, PoolInterface $pool = null)
     {
-        $this->processPool = $pool ?: new Pool();
+        $this->pool = $pool ?: new Pool();
         if (!$output instanceof DiffConsoleOutput) {
             $this->output = new DiffConsoleOutput($output);
             $this->output->setTrim(true);
@@ -59,14 +59,14 @@ class Table
         $this->terminal = $this->output->getTerminal();
         $this->exceptions = [];
 
-        $this->processPool->addListener(
+        $this->pool->addListener(
             PoolRunEvent::POOL_RUN_ADDED,
             function (PoolRunEvent $event) {
                 $this->add($event->getRun());
             }
         );
 
-        array_map([$this, 'add'], $this->processPool->getAll());
+        array_map([$this, 'add'], $this->pool->getAll());
     }
 
     /**
@@ -119,7 +119,7 @@ class Table
         }
 
         $run->addListener(
-            RunEvent::COMPLETED,
+            RunEvent::SUCCESSFUL,
             function (RunEvent $event) use ($index, &$bar, &$spinner) {
                 $this->rows[$index] = $this->formatRow($event->getRun(), "<info>✓</info>");
                 $this->render($index);
@@ -145,13 +145,13 @@ class Table
      */
     private function getSummary()
     {
-        if ($this->processPool->hasStarted()) {
-            if ($this->processPool->isRunning()) {
+        if ($this->pool->hasStarted()) {
+            if ($this->pool->isRunning()) {
                 return sprintf(
                     '<comment>Total</comment>: %2d, <comment>Running</comment>: %2d, <comment>Waiting</comment>: %2d',
-                    $this->processPool->count(),
-                    count($this->processPool->getRunning()),
-                    count($this->processPool->getWaiting())
+                    $this->pool->count(),
+                    count($this->pool->getRunning()),
+                    count($this->pool->getWaiting())
                 );
             } else {
                 return '';
@@ -187,7 +187,7 @@ class Table
         if ($this->output->getVerbosity() >= OutputInterface::VERBOSITY_VERBOSE) {
             $this->render();
         }
-        $output = $this->processPool->run($checkInterval);
+        $output = $this->pool->run($checkInterval);
         if ($this->output->getVerbosity() >= OutputInterface::VERBOSITY_VERBOSE && $this->showSummary) {
             $this->render();
         }

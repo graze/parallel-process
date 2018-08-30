@@ -37,7 +37,7 @@ class TableTest extends TestCase
     {
         mb_internal_encoding("UTF-8");
         $this->bufferOutput = new BufferDiffOutput();
-        $this->pool = Mockery::mock(Pool::class)->makePartial();
+        $this->pool = new Pool();
         $this->table = new Table($this->bufferOutput, $this->pool);
     }
 
@@ -81,10 +81,9 @@ class TableTest extends TestCase
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
         $process->shouldReceive('start')->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, true); //add, start, run
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
             true,  // check
             true,  // ...
             true,
@@ -131,10 +130,9 @@ class TableTest extends TestCase
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
         $process->shouldReceive('start')->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, true); // add, start, run
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
             true,  // check
             true,  // ...
             true,
@@ -251,10 +249,9 @@ class TableTest extends TestCase
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
         $process->shouldReceive('start')->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, true); // add, start, run
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
             true,  // check
             false // complete
         );
@@ -287,8 +284,8 @@ class TableTest extends TestCase
             call_user_func($closure, Process::OUT, 'some text');
             return true;
         }))->once();
-        $process->shouldReceive('isStarted')->andReturn(false, true);
-        $process->shouldReceive('isRunning')->andReturn(false, false, true, false); // add, start, check, check
+        $process->shouldReceive('isStarted')->andReturn(false, false, false, true); // add, summary, start, run
+        $process->shouldReceive('isRunning')->andReturn(false, true, false); // add, check, check
         $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
         $process->shouldReceive('getOutput')->andReturn('some text');
 
@@ -352,8 +349,12 @@ class TableTest extends TestCase
                 call_user_func($closure, Process::OUT, 'some text');
                 return true;
             }))->once();
-            $process->shouldReceive('isStarted')->andReturn(true);
-            $process->shouldReceive('isRunning')->andReturn(false, false, true, false); // add, start, check, check
+            if ($showSummary) {
+                $process->shouldReceive('isStarted')->andReturn(false, false, false, true); // add, summary, start, run
+            } else {
+                $process->shouldReceive('isStarted')->andReturn(false, false, true); // add, start, run
+            }
+            $process->shouldReceive('isRunning')->andReturn(false, true, false); // add, check, check
             $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn($processStates[$i]);
             $process->shouldReceive('getOutput')->andReturn('some text');
 
@@ -567,7 +568,7 @@ DOC
                   [
                       '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %',
                       '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
-                      '%^$%',
+                      '%^waiting...$%',
                   ],
                   [
                       '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',

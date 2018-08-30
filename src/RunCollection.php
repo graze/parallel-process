@@ -5,11 +5,20 @@ namespace Graze\ParallelProcess;
 use Exception;
 use Graze\DataStructure\Collection\Collection;
 use Graze\ParallelProcess\Event\EventDispatcherTrait;
+use Graze\ParallelProcess\Event\PoolRunEvent;
 use Graze\ParallelProcess\Event\RunEvent;
 use InvalidArgumentException;
 use Symfony\Component\Process\Process;
 use Throwable;
 
+/**
+ * Class RunCollection
+ *
+ * A RunCollection is a arbitrary collection of runs that can be used to group runs together when displaying with a
+ * Table
+ *
+ * @package Graze\ParallelProcess
+ */
 class RunCollection extends Collection implements RunInterface, PoolInterface
 {
     const STATE_NOT_STARTED = 0;
@@ -18,16 +27,20 @@ class RunCollection extends Collection implements RunInterface, PoolInterface
 
     use EventDispatcherTrait;
 
-    /** @var Pool */
+    /** @var PoolInterface */
     private $pool;
     /** @var RunInterface[] */
     protected $items = [];
+    /** @var RunInterface[] */
+    private $waiting = [];
+    /** @var RunInterface[] */
+    private $running = [];
     /** @var RunInterface[] */
     private $complete = [];
     /** @var int */
     private $state = self::STATE_NOT_STARTED;
     /** @var Exception[]|Throwable[] */
-    private $exceptions;
+    private $exceptions = [];
     /** @var array */
     private $tags;
     /** @var float */
@@ -40,12 +53,12 @@ class RunCollection extends Collection implements RunInterface, PoolInterface
     /**
      * RunCollection constructor.
      *
-     * @param Pool           $pool
+     * @param PoolInterface  $pool
      * @param RunInterface[] $runs
      * @param array          $tags
      * @param float          $priority
      */
-    public function __construct(Pool $pool, array $runs, array $tags = [], $priority = 1.0)
+    public function __construct(PoolInterface $pool, array $runs = [], array $tags = [], $priority = 1.0)
     {
         parent::__construct([]);
 
@@ -72,15 +85,22 @@ class RunCollection extends Collection implements RunInterface, PoolInterface
         }
 
         parent::add($item);
+        $this->waiting[] = $item;
 
         $item->addListener(
             RunEvent::STARTED,
-            function () {
-                if ($this->state != static::STATE_NOT_STARTED) {
+            function (RunEvent $event) {
+                if ($this->state == static::STATE_NOT_STARTED) {
                     $this->started = microtime(true);
                     $this->dispatch(RunEvent::STARTED, new RunEvent($this));
                 }
                 $this->state = static::STATE_RUNNING;
+                $index = array_search($event->getRun(), $this->waiting, true);
+                if ($index !== false) {
+                    unset($this->waiting[$index]);
+                }
+                $this->running[] = $event->getRun();
+                $this->dispatch(RunEvent::UPDATED, new RunEvent($this));
             }
         );
         $item->addListener(
@@ -92,6 +112,10 @@ class RunCollection extends Collection implements RunInterface, PoolInterface
                         return !$run->hasStarted() || $run->isRunning();
                     }
                 );
+                $index = array_search($event->getRun(), $this->running, true);
+                if ($index !== false) {
+                    unset($this->running[$index]);
+                }
                 $this->complete[] = $event->getRun();
                 $this->dispatch(RunEvent::UPDATED, new RunEvent($this));
                 if (count($notFinished) === 0) {
@@ -109,11 +133,13 @@ class RunCollection extends Collection implements RunInterface, PoolInterface
         $item->addListener(
             RunEvent::FAILED,
             function (RunEvent $event) {
-                $this->exceptions[] += $event->getRun()->getExceptions();
+                $this->exceptions += $event->getRun()->getExceptions();
             }
         );
 
         $this->pool->add($item);
+
+        $this->dispatch(PoolRunEvent::POOL_RUN_ADDED, new PoolRunEvent($this, $item));
 
         return $this;
     }
@@ -190,6 +216,7 @@ class RunCollection extends Collection implements RunInterface, PoolInterface
      */
     public function poll()
     {
+        $this->pool->poll();
         return $this->isRunning();
     }
 
@@ -254,6 +281,47 @@ class RunCollection extends Collection implements RunInterface, PoolInterface
             RunEvent::SUCCESSFUL,
             RunEvent::FAILED,
             RunEvent::UPDATED,
+            PoolRunEvent::POOL_RUN_ADDED,
         ];
+    }
+
+    /**
+     * Run this pool of runs and block until they are complete.
+     *
+     * Note this will run the parent pool
+     *
+     * @param float $interval
+     *
+     * @return bool `true` if all the runs were successful
+     */
+    public function run($interval = self::CHECK_INTERVAL)
+    {
+        $this->pool->run($interval);
+
+        return $this->isSuccessful();
+    }
+
+    /**
+     * @return RunInterface[]
+     */
+    public function getWaiting()
+    {
+        return $this->waiting;
+    }
+
+    /**
+     * @return RunInterface[]
+     */
+    public function getRunning()
+    {
+        return $this->running;
+    }
+
+    /**
+     * @return RunInterface[]
+     */
+    public function getFinished()
+    {
+        return $this->complete;
     }
 }

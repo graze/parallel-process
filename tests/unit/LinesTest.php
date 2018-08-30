@@ -38,7 +38,7 @@ class LinesTest extends TestCase
     {
         mb_internal_encoding("UTF-8");
         $this->bufferOutput = new BufferDiffOutput();
-        $this->pool = Mockery::mock(Pool::class)->makePartial();
+        $this->pool = new Pool();
         $this->lines = new Lines($this->bufferOutput, $this->pool);
     }
 
@@ -93,10 +93,9 @@ class LinesTest extends TestCase
                 }
             )
         )->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, true); // add, start, check
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
             true,  // check
             true,  // ...
             true,
@@ -143,10 +142,9 @@ class LinesTest extends TestCase
                 }
             )
         )->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, true); // add, start, check
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
             true,  // check
             false // complete
         );
@@ -181,10 +179,9 @@ class LinesTest extends TestCase
                 }
             )
         )->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, true); // add, start, check
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
             true,  // check
             true,  // ...
             true,
@@ -218,10 +215,9 @@ class LinesTest extends TestCase
                 }
             )
         )->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, true); // add, start, check
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
             true,  // check
             true,  // ...
             true,
@@ -299,10 +295,9 @@ TEXT
                 }
             )
         )->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, true); // add, start, check
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
             true,  // check
             true,  // ...
             true,
@@ -338,10 +333,9 @@ TEXT
                 }
             )
         )->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, true); // add, start, check
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
             true,  // check
             true,  // ...
             true,
@@ -377,10 +371,9 @@ TEXT
                 }
             )
         )->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, true); // add, start, check
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
             true,  // check
             true,  // ...
             true,
@@ -421,10 +414,9 @@ TEXT
                 }
             )
         )->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, true); // add, start, check
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
             true,  // check
             true,  // ...
             true,
@@ -459,10 +451,9 @@ TEXT
         $run = Mockery::mock(RunInterface::class);
         $run->shouldReceive('stop');
         $run->shouldReceive('start')->once();
-        $run->shouldReceive('hasStarted')->andReturn(true);
+        $run->shouldReceive('hasStarted')->andReturn(false, false, true);
         $run->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
             true,  // check
             true,  // ...
             true,
@@ -477,8 +468,9 @@ TEXT
             false // complete
         );
         $run->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(false);
+        $run->shouldReceive('getPriority')->andReturn(1.0);
 
-        $startedEvent = $completedEvent = $updatedEvent = null;
+        $startedEvent = $completedEvent = $updatedEvent = $successfulEvent = null;
         $failedEvents = [];
 
         $run->allows()->addListener(
@@ -506,6 +498,13 @@ TEXT
             RunEvent::UPDATED,
             Mockery::on(function (callable $callback) use (&$updatedEvent) {
                 $updatedEvent = $callback;
+                return true;
+            })
+        );
+        $run->allows()->addListener(
+            RunEvent::SUCCESSFUL,
+            Mockery::on(function (callable $callback) use (&$successfulEvent) {
+                $successfulEvent = $callback;
                 return true;
             })
         );
@@ -538,10 +537,9 @@ TEXT
         $run = Mockery::mock(RunInterface::class);
         $run->shouldReceive('stop');
         $run->shouldReceive('start')->once();
-        $run->shouldReceive('hasStarted')->andReturn(true);
+        $run->shouldReceive('hasStarted')->andReturn(false, false, true);
         $run->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
             true,  // check
             true,  // ...
             true,
@@ -556,8 +554,9 @@ TEXT
             false // complete
         );
         $run->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(false);
+        $run->shouldReceive('getPriority')->atLeast()->once()->andReturn(1.0);
 
-        $startedEvent = $completedEvent = $updatedEvent = null;
+        $startedEvent = $completedEvent = $updatedEvent = $successfulEvent = null;
         $failedEvents = [];
 
         $run->allows()->addListener(
@@ -585,6 +584,13 @@ TEXT
             RunEvent::UPDATED,
             Mockery::on(function (callable $callback) use (&$updatedEvent) {
                 $updatedEvent = $callback;
+                return true;
+            })
+        );
+        $run->allows()->addListener(
+            RunEvent::SUCCESSFUL,
+            Mockery::on(function (callable $callback) use (&$successfulEvent) {
+                $successfulEvent = $callback;
                 return true;
             })
         );

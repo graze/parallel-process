@@ -13,10 +13,14 @@
 
 namespace Graze\ParallelProcess;
 
+use Graze\ParallelProcess\Event\DispatcherInterface;
 use Symfony\Component\Process\Process;
+use Traversable;
 
-interface PoolInterface
+interface PoolInterface extends \Countable, DispatcherInterface
 {
+    const CHECK_INTERVAL = 0.1;
+
     /**
      * @param RunInterface|Process $item
      * @param array                $tags
@@ -26,7 +30,45 @@ interface PoolInterface
     public function add($item, array $tags = []);
 
     /**
+     * Start this pool of runs
+     *
      * @return $this
      */
     public function start();
+
+    /**
+     * Check to see if this pool has finished
+     *
+     * @return bool
+     */
+    public function poll();
+
+    /**
+     * Run this pool of runs and block until they are complete
+     *
+     * @param float $interval
+     *
+     * @return bool `true` if all the runs were successful
+     */
+    public function run($interval = self::CHECK_INTERVAL);
+
+    /**
+     * @return Traversable
+     */
+    public function getAll();
+
+    /**
+     * @return RunInterface[]
+     */
+    public function getWaiting();
+
+    /**
+     * @return RunInterface[]
+     */
+    public function getRunning();
+
+    /**
+     * @return RunInterface[]
+     */
+    public function getFinished();
 }

@@ -39,28 +39,28 @@ trait EventDispatcherTrait
     protected abstract function getEventNames();
 
     /**
-     * @param string   $eventName
+     * @param string   $name
      * @param callable $handler
      *
      * @return $this
      */
-    public function addListener($eventName, callable $handler)
+    public function addListener($name, callable $handler)
     {
-        $this->assertEventName($eventName);
-        $this->getEventDispatcher()->addListener($eventName, $handler);
+        $this->assertEventName($name);
+        $this->getEventDispatcher()->addListener($name, $handler);
         return $this;
     }
 
     /**
-     * @param string $eventName
+     * @param string $name
      * @param Event  $event
      *
      * @return $this
      */
-    protected function dispatch($eventName, Event $event)
+    protected function dispatch($name, Event $event)
     {
-        $this->assertEventName($eventName);
-        $this->getEventDispatcher()->dispatch($eventName, $event);
+        $this->assertEventName($name);
+        $this->getEventDispatcher()->dispatch($name, $event);
         return $this;
     }
 

@@ -91,7 +91,7 @@ class Run implements RunInterface, OutputterInterface
      */
     public function start()
     {
-        if (!$this->process->isRunning()) {
+        if (!$this->process->isStarted()) {
             $this->started = microtime(true);
             $this->dispatch(RunEvent::STARTED, new RunEvent($this));
             $this->process->start(

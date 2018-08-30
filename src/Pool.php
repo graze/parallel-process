@@ -28,15 +28,16 @@ class Pool extends Collection implements RunInterface, PoolInterface
 {
     use EventDispatcherTrait;
 
-    const CHECK_INTERVAL = 0.1;
-    const NO_MAX         = -1;
+    const NO_MAX = -1;
 
     /** @var RunInterface[] */
     protected $items = [];
     /** @var RunInterface[] */
     protected $running = [];
-    /** @var SplPriorityQueue */
+    /** @var RunInterface[] */
     protected $waiting = [];
+    /** @var SplPriorityQueue */
+    protected $waitingQueue;
     /** @var RunInterface[] */
     protected $finished = [];
     /** @var float */
@@ -76,13 +77,9 @@ class Pool extends Collection implements RunInterface, PoolInterface
         $this->maxSimultaneous = $maxSimultaneous;
         $this->runInstantly = $runInstantly;
         $this->tags = $tags;
-        $this->waiting = new SplPriorityQueue();
-        $this->waiting->setExtractFlags(SplPriorityQueue::EXTR_DATA);
+        $this->waitingQueue = new SplPriorityQueue();
+        $this->waitingQueue->setExtractFlags(SplPriorityQueue::EXTR_DATA);
         $this->priority = $priority;
-
-        if ($this->runInstantly) {
-            $this->start();
-        }
 
         array_map([$this, 'add'], $items);
     }
@@ -132,15 +129,24 @@ class Pool extends Collection implements RunInterface, PoolInterface
             throw new InvalidArgumentException("add: Can only add `RunInterface` to this collection");
         }
 
-        if (!($this->isRunning() || $this->runInstantly) && $item->isRunning()) {
+        $isRunning = $item->isRunning();
+        if (!($this->isRunning() || $this->runInstantly) && $isRunning) {
             throw new NotRunningException("add: unable to add a running item when the pool has not started");
         }
 
         parent::add($item);
-        if ($item->isRunning()) {
+
+        if ($isRunning) {
             $this->running[] = $item;
+        } elseif ($item->hasStarted()) {
+            $this->finished[] = $item;
         } else {
-            $this->waiting->insert($item, $item->getPriority());
+            $this->waiting[] = $item;
+            $this->waitingQueue->insert($item, $item->getPriority());
+
+            if ($this->isRunning() || $this->runInstantly) {
+                $this->startNext();
+            }
         }
 
         $this->dispatch(PoolRunEvent::POOL_RUN_ADDED, new PoolRunEvent($this, $item));
@@ -184,7 +190,7 @@ class Pool extends Collection implements RunInterface, PoolInterface
      *
      * @param float $checkInterval Seconds between checks
      *
-     * @return bool true if all processes were successful
+     * @return bool `true` if all the runs were successful
      */
     public function run($checkInterval = self::CHECK_INTERVAL)
     {
@@ -206,6 +212,10 @@ class Pool extends Collection implements RunInterface, PoolInterface
     private function startRun(RunInterface $run)
     {
         $run->start();
+        $index = array_search($run, $this->waiting, true);
+        if ($index !== false) {
+            unset($this->waiting[$index]);
+        }
         $this->running[] = $run;
         if (is_null($this->started)) {
             $this->started = microtime(true);
@@ -219,14 +229,14 @@ class Pool extends Collection implements RunInterface, PoolInterface
     private function startNext()
     {
         if ($this->maxSimultaneous !== static::NO_MAX
-            && $this->waiting->valid()
+            && $this->waitingQueue->valid()
             && count($this->running) < $this->maxSimultaneous) {
-            for ($i = count($this->running); $i < $this->maxSimultaneous && $this->waiting->valid(); $i++) {
-                $this->startRun($this->waiting->extract());
+            for ($i = count($this->running); $i < $this->maxSimultaneous && $this->waitingQueue->valid(); $i++) {
+                $this->startRun($this->waitingQueue->extract());
             }
         } elseif ($this->maxSimultaneous === static::NO_MAX) {
-            while ($this->waiting->valid()) {
-                $this->startRun($this->waiting->extract());
+            while ($this->waitingQueue->valid()) {
+                $this->startRun($this->waitingQueue->extract());
             }
         }
     }
@@ -324,7 +334,7 @@ class Pool extends Collection implements RunInterface, PoolInterface
      */
     public function getWaiting()
     {
-        return iterator_to_array($this->waiting);
+        return $this->waiting;
     }
 
     /**
