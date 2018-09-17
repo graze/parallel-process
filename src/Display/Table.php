@@ -11,13 +11,18 @@
  * @link    https://github.com/graze/parallel-process
  */
 
-namespace Graze\ParallelProcess;
+namespace Graze\ParallelProcess\Display;
 
 use Exception;
 use Graze\DiffRenderer\DiffConsoleOutput;
 use Graze\DiffRenderer\Terminal\TerminalInterface;
 use Graze\ParallelProcess\Event\PoolRunEvent;
 use Graze\ParallelProcess\Event\RunEvent;
+use Graze\ParallelProcess\OutputterInterface;
+use Graze\ParallelProcess\PoolInterface;
+use Graze\ParallelProcess\PriorityPool;
+use Graze\ParallelProcess\ProcessRun;
+use Graze\ParallelProcess\RunInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class Table
@@ -49,7 +54,7 @@ class Table
      */
     public function __construct(OutputInterface $output, PoolInterface $pool = null)
     {
-        $this->pool = $pool ?: new Pool();
+        $this->pool = $pool ?: new PriorityPool();
         if (!$output instanceof DiffConsoleOutput) {
             $this->output = new DiffConsoleOutput($output);
             $this->output->setTrim(true);
@@ -134,7 +139,7 @@ class Table
                 $this->exceptions += $run->getExceptions();
             }
         );
-        if ($run instanceof Run) {
+        if ($run instanceof ProcessRun) {
             $run->setUpdateOnProcessOutput(false);
         }
         $this->updateRowKeyLengths($run->getTags());
@@ -182,7 +187,7 @@ class Table
      * @return bool true if all processes were successful
      * @throws Exception
      */
-    public function run($checkInterval = Pool::CHECK_INTERVAL)
+    public function run($checkInterval = PriorityPool::CHECK_INTERVAL)
     {
         if ($this->output->getVerbosity() >= OutputInterface::VERBOSITY_VERBOSE) {
             $this->render();

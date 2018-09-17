@@ -11,12 +11,17 @@
  * @link    https://github.com/graze/parallel-process
  */
 
-namespace Graze\ParallelProcess;
+namespace Graze\ParallelProcess\Display;
 
 use Graze\DiffRenderer\DiffConsoleOutput;
 use Graze\DiffRenderer\Terminal\TerminalInterface;
 use Graze\ParallelProcess\Event\PoolRunEvent;
 use Graze\ParallelProcess\Event\RunEvent;
+use Graze\ParallelProcess\OutputterInterface;
+use Graze\ParallelProcess\PoolInterface;
+use Graze\ParallelProcess\PriorityPool;
+use Graze\ParallelProcess\ProcessRun;
+use Graze\ParallelProcess\RunInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class Lines
@@ -47,8 +52,8 @@ class Lines
     /**
      * Lines constructor.
      *
-     * @param OutputInterface $output
-     * @param PoolInterface|null       $pool
+     * @param OutputInterface    $output
+     * @param PoolInterface|null $pool
      */
     public function __construct(OutputInterface $output, PoolInterface $pool = null)
     {
@@ -60,7 +65,7 @@ class Lines
             $this->output = $output;
         }
         $this->terminal = $this->output->getTerminal();
-        $this->pool = $pool ?: new Pool();
+        $this->pool = $pool ?: new PriorityPool();
 
         $this->pool->addListener(
             PoolRunEvent::POOL_RUN_ADDED,
@@ -216,7 +221,7 @@ class Lines
             }
         );
 
-        if ($run instanceof Run) {
+        if ($run instanceof ProcessRun) {
             $run->setUpdateOnPoll(false);
         }
         $this->updateRowKeyLengths($run->getTags());
@@ -257,7 +262,7 @@ class Lines
      *
      * @return bool true if all processes were successful
      */
-    public function run($checkInterval = Pool::CHECK_INTERVAL)
+    public function run($checkInterval = PriorityPool::CHECK_INTERVAL)
     {
         return $this->pool->run($checkInterval);
     }

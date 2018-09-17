@@ -19,6 +19,10 @@ use Throwable;
 
 interface RunInterface extends DispatcherInterface
 {
+    const STATE_NOT_STARTED = 0;
+    const STATE_RUNNING     = 1;
+    const STATE_NOT_RUNNING = 2;
+
     /**
      * Has this run been started before
      *

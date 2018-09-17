@@ -1,15 +1,4 @@
 <?php
-/**
- * This file is part of graze/parallel-process.
- *
- * Copyright © 2018 Nature Delivered Ltd. <https://www.graze.com>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- *
- * @license https://github.com/graze/parallel-process/blob/master/LICENSE.md
- * @link    https://github.com/graze/parallel-process
- */
 
 namespace Graze\ParallelProcess;
 
@@ -18,76 +7,259 @@ use Graze\DataStructure\Collection\Collection;
 use Graze\ParallelProcess\Event\EventDispatcherTrait;
 use Graze\ParallelProcess\Event\PoolRunEvent;
 use Graze\ParallelProcess\Event\RunEvent;
-use Graze\ParallelProcess\Exceptions\NotRunningException;
 use InvalidArgumentException;
-use SplPriorityQueue;
 use Symfony\Component\Process\Process;
 use Throwable;
 
+/**
+ * Class Pool
+ *
+ * A Pool is a arbitrary collection of runs that can be used to group runs together when displaying with a
+ * Table
+ *
+ * @package Graze\ParallelProcess
+ */
 class Pool extends Collection implements RunInterface, PoolInterface
 {
     use EventDispatcherTrait;
-
-    const NO_MAX = -1;
+    use RunningStateTrait;
 
     /** @var RunInterface[] */
     protected $items = [];
     /** @var RunInterface[] */
+    protected $waiting = [];
+    /** @var RunInterface[] */
     protected $running = [];
     /** @var RunInterface[] */
-    protected $waiting = [];
-    /** @var SplPriorityQueue */
-    protected $waitingQueue;
-    /** @var RunInterface[] */
-    protected $finished = [];
-    /** @var float */
-    private $started;
-    /** @var float */
-    private $finishedTime;
-    /** @var int */
-    private $maxSimultaneous = -1;
-    /** @var bool */
-    private $runInstantly = false;
-    /** @var string[] */
-    private $tags;
+    protected $complete = [];
     /** @var Exception[]|Throwable[] */
     private $exceptions = [];
+    /** @var array */
+    private $tags;
     /** @var float */
     private $priority;
 
     /**
-     * Pool constructor.
+     * RunCollection constructor.
      *
-     * @param RunInterface[]|Process[] $items
-     * @param int                      $maxSimultaneous Maximum number of simultaneous processes
-     * @param bool                     $runInstantly    Run any added processes immediately if they are not already
-     *                                                  running
-     * @param array                    $tags
-     * @param float                    $priority
+     * @param RunInterface[] $runs
+     * @param array          $tags
+     * @param float          $priority
      */
-    public function __construct(
-        array $items = [],
-        $maxSimultaneous = self::NO_MAX,
-        $runInstantly = false,
-        array $tags = [],
-        $priority = 1.0
-    ) {
+    public function __construct(array $runs = [], array $tags = [], $priority = 1.0)
+    {
         parent::__construct([]);
 
-        $this->maxSimultaneous = $maxSimultaneous;
-        $this->runInstantly = $runInstantly;
         $this->tags = $tags;
-        $this->waitingQueue = new SplPriorityQueue();
-        $this->waitingQueue->setExtractFlags(SplPriorityQueue::EXTR_DATA);
-        $this->priority = $priority;
 
-        array_map([$this, 'add'], $items);
+        array_map([$this, 'add'], $runs);
+        $this->priority = $priority;
+    }
+
+    /**
+     * @param RunInterface|Process $item
+     * @param array                $tags
+     *
+     * @return $this
+     */
+    public function add($item, array $tags = [])
+    {
+        if ($item instanceof Process) {
+            return $this->add(new ProcessRun($item, $tags));
+        }
+        if (!$item instanceof RunInterface) {
+            throw new InvalidArgumentException('item must implement `RunInterface`');
+        }
+
+        parent::add($item);
+        $status = 'waiting';
+        if ($item->isRunning()) {
+            $status = 'running';
+            $this->running[] = $item;
+        } elseif ($item->hasStarted()) {
+            $status = 'finished';
+            $this->finished[] = $item;
+        } else {
+            $this->waiting[] = $item;
+        }
+
+        $item->addListener(RunEvent::STARTED, [$this, 'onRunStarted']);
+        $item->addListener(RunEvent::COMPLETED, [$this, 'onRunCompleted']);
+        $item->addListener(RunEvent::FAILED, [$this, 'onRunFailed']);
+
+        $this->dispatch(PoolRunEvent::POOL_RUN_ADDED, new PoolRunEvent($this, $item));
+
+        if ($status == 'running' || $status == 'finished') {
+            if ($this->state == static::STATE_NOT_STARTED) {
+                $this->setStarted();
+                $this->dispatch(RunEvent::STARTED, new RunEvent($this));
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * When a run starts, check our current state and start ourselves in required
+     *
+     * @param RunEvent $event
+     */
+    public function onRunStarted(RunEvent $event)
+    {
+        $index = array_search($event->getRun(), $this->waiting, true);
+        if ($index !== false) {
+            unset($this->waiting[$index]);
+        }
+        $this->running[] = $event->getRun();
+        if ($this->state == static::STATE_NOT_STARTED) {
+            $this->setStarted();
+            $this->dispatch(RunEvent::STARTED, new RunEvent($this));
+        }
+        $this->dispatch(RunEvent::UPDATED, new RunEvent($this));
+    }
+
+    /**
+     * When a run is completed, check if everything has finished
+     *
+     * @param RunEvent $event
+     */
+    public function onRunCompleted(RunEvent $event)
+    {
+        $index = array_search($event->getRun(), $this->running, true);
+        if ($index !== false) {
+            unset($this->running[$index]);
+        }
+        $this->complete[] = $event->getRun();
+        $this->dispatch(RunEvent::UPDATED, new RunEvent($this));
+        if (count($this->waiting) === 0 && count($this->running) === 0) {
+            $this->setFinished();
+            if ($this->isSuccessful()) {
+                $this->dispatch(RunEvent::SUCCESSFUL, new RunEvent($this));
+            } else {
+                $this->dispatch(RunEvent::FAILED, new RunEvent($this));
+            }
+            $this->dispatch(RunEvent::COMPLETED, new RunEvent($this));
+        }
+    }
+
+    /**
+     * Handle any errors returned from the child run
+     *
+     * @param RunEvent $event
+     */
+    public function onRunFailed(RunEvent $event)
+    {
+        $this->exceptions = array_merge($this->exceptions, $event->getRun()->getExceptions());
+    }
+
+    /**
+     * Has this run been started before
+     *
+     * @return bool
+     */
+    public function hasStarted()
+    {
+        return $this->getState() !== static::STATE_NOT_STARTED;
+    }
+
+    /**
+     * Start all non running children
+     *
+     * @return $this
+     *
+     * @throws \Graze\ParallelProcess\Exceptions\NotRunningException
+     */
+    public function start()
+    {
+        foreach ($this->items as $run) {
+            if (!$run->hasStarted()) {
+                $run->start();
+            }
+        }
+        return $this;
+    }
+
+    /**
+     * Was this run successful
+     *
+     * @return bool
+     */
+    public function isSuccessful()
+    {
+        if ($this->getState() === static::STATE_NOT_RUNNING) {
+            foreach ($this->items as $run) {
+                if (!$run->isSuccessful()) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * If the run was unsuccessful, get the error if applicable
+     *
+     * @return Exception[]|Throwable[]
+     */
+    public function getExceptions()
+    {
+        return $this->exceptions;
+    }
+
+    /**
+     * We think this is running
+     *
+     * @return bool
+     */
+    public function isRunning()
+    {
+        return $this->getState() === static::STATE_RUNNING;
+    }
+
+    /**
+     * Pools to see if this process is running
+     *
+     * @return bool
+     */
+    public function poll()
+    {
+        foreach ($this->running as $run) {
+            $run->poll();
+        }
+        return $this->isRunning();
+    }
+
+    /**
+     * Get a set of tags associated with this run
+     *
+     * @return array
+     */
+    public function getTags()
+    {
+        return $this->tags;
+    }
+
+    /**
+     * @return float[]|null an array of values of the current position, max, and percentage. null if not applicable
+     */
+    public function getProgress()
+    {
+        return [count($this->complete), count($this->items), count($this->complete) / count($this->items)];
+    }
+
+    /**
+     * @return float
+     */
+    public function getPriority()
+    {
+        return $this->priority;
     }
 
     /**
      * @param float $priority
      *
-     * @return Pool
+     * @return $this
      */
     public function setPriority($priority)
     {
@@ -111,326 +283,47 @@ class Pool extends Collection implements RunInterface, PoolInterface
     }
 
     /**
-     * Add a new process to the pool
+     * Run this pool of runs and block until they are complete.
      *
-     * @param RunInterface|Process $item
-     * @param array                $tags If a process is supplied, these are added to create a run.
-     *                                   This is ignored when adding a run
+     * Note this will run the parent pool
      *
-     * @return $this
-     */
-    public function add($item, array $tags = [])
-    {
-        if ($item instanceof Process) {
-            return $this->addProcess($item, $tags);
-        }
-
-        if (!$item instanceof RunInterface) {
-            throw new InvalidArgumentException("add: Can only add `RunInterface` to this collection");
-        }
-
-        $isRunning = $item->isRunning();
-        if (!($this->isRunning() || $this->runInstantly) && $isRunning) {
-            throw new NotRunningException("add: unable to add a running item when the pool has not started");
-        }
-
-        parent::add($item);
-
-        if ($isRunning) {
-            $this->running[] = $item;
-        } elseif ($item->hasStarted()) {
-            $this->finished[] = $item;
-        } else {
-            $this->waiting[] = $item;
-            $this->waitingQueue->insert($item, $item->getPriority());
-
-            if ($this->isRunning() || $this->runInstantly) {
-                $this->startNext();
-            }
-        }
-
-        $this->dispatch(PoolRunEvent::POOL_RUN_ADDED, new PoolRunEvent($this, $item));
-        $item->addListener(
-            RunEvent::FAILED,
-            function (RunEvent $event) {
-                $this->exceptions += $event->getRun()->getExceptions();
-            }
-        );
-
-        return $this;
-    }
-
-    /**
-     * Add a new process to the pool using the default callbacks
-     *
-     * @param Process $process
-     * @param array   $tags
-     *
-     * @return $this
-     */
-    private function addProcess(Process $process, array $tags = [])
-    {
-        return $this->add(new Run($process, $tags));
-    }
-
-    /**
-     * Start all the processes running
-     *
-     * @return $this
-     */
-    public function start()
-    {
-        $this->startNext();
-
-        return $this;
-    }
-
-    /**
-     * Blocking call to run processes;
-     *
-     * @param float $checkInterval Seconds between checks
+     * @param float $interval
      *
      * @return bool `true` if all the runs were successful
      */
-    public function run($checkInterval = self::CHECK_INTERVAL)
+    public function run($interval = self::CHECK_INTERVAL)
     {
-        $this->startNext();
+        $this->start();
 
-        $interval = (int) ($checkInterval * 1000000);
+        $sleep = (int) ($interval * 1000000);
         while ($this->poll()) {
-            usleep($interval);
+            usleep($sleep);
         }
 
         return $this->isSuccessful();
     }
 
     /**
-     * Actually start a run
-     *
-     * @param RunInterface $run
-     */
-    private function startRun(RunInterface $run)
-    {
-        $run->start();
-        $index = array_search($run, $this->waiting, true);
-        if ($index !== false) {
-            unset($this->waiting[$index]);
-        }
-        $this->running[] = $run;
-        if (is_null($this->started)) {
-            $this->started = microtime(true);
-            $this->dispatch(RunEvent::STARTED, new RunEvent($this));
-        }
-    }
-
-    /**
-     * Check when a run has finished, if there are processes waiting, start them
-     */
-    private function startNext()
-    {
-        if ($this->maxSimultaneous !== static::NO_MAX
-            && $this->waitingQueue->valid()
-            && count($this->running) < $this->maxSimultaneous) {
-            for ($i = count($this->running); $i < $this->maxSimultaneous && $this->waitingQueue->valid(); $i++) {
-                $this->startRun($this->waitingQueue->extract());
-            }
-        } elseif ($this->maxSimultaneous === static::NO_MAX) {
-            while ($this->waitingQueue->valid()) {
-                $this->startRun($this->waitingQueue->extract());
-            }
-        }
-    }
-
-    /**
-     * Determine if any item has run
-     *
-     * @return bool
-     */
-    public function hasStarted()
-    {
-        foreach ($this->items as $run) {
-            if ($run->hasStarted()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Are any of the processes running
-     *
-     * @return bool
-     */
-    public function poll()
-    {
-        foreach ($this->running as $i => $run) {
-            if (!$run->poll()) {
-                $this->finished[] = $run;
-                $this->running[$i] = null;
-            }
-        }
-        $this->running = array_filter($this->running);
-
-        $this->startNext();
-
-        $this->dispatch(RunEvent::UPDATED, new RunEvent($this));
-
-        if (!$this->isRunning()) {
-            $this->finishedTime = microtime(true);
-            if ($this->isSuccessful()) {
-                $this->dispatch(RunEvent::SUCCESSFUL, new RunEvent($this));
-            } else {
-                $this->dispatch(RunEvent::FAILED, new RunEvent($this));
-            }
-            $this->dispatch(RunEvent::COMPLETED, new RunEvent($this));
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isRunning()
-    {
-        return count($this->running) > 0;
-    }
-
-    /**
-     * Return if all runs have started and were successful
-     *
-     * @return bool
-     */
-    public function isSuccessful()
-    {
-        if (!$this->hasStarted()) {
-            return false;
-        }
-
-        foreach ($this->items as $run) {
-            if (!$run->isSuccessful()) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * Get a list of all the currently running runs
-     *
-     * @return RunInterface[]
-     */
-    public function getRunning()
-    {
-        return $this->running;
-    }
-
-    /**
-     * Get a list of all the current waiting runs
-     *
      * @return RunInterface[]
      */
     public function getWaiting()
     {
-        return $this->waiting;
+        return array_values($this->waiting);
     }
 
     /**
-     * Get a list of all the current waiting runs
-     *
+     * @return RunInterface[]
+     */
+    public function getRunning()
+    {
+        return array_values($this->running);
+    }
+
+    /**
      * @return RunInterface[]
      */
     public function getFinished()
     {
-        return $this->finished;
-    }
-
-    /**
-     * @return int
-     */
-    public function getMaxSimultaneous()
-    {
-        return $this->maxSimultaneous;
-    }
-
-    /**
-     * @param int $maxSimultaneous
-     *
-     * @return $this
-     */
-    public function setMaxSimultaneous($maxSimultaneous)
-    {
-        $this->maxSimultaneous = $maxSimultaneous;
-        return $this;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isRunInstantly()
-    {
-        return $this->runInstantly;
-    }
-
-    /**
-     * @param bool $runInstantly
-     *
-     * @return Pool
-     */
-    public function setRunInstantly($runInstantly)
-    {
-        $this->runInstantly = $runInstantly;
-        return $this;
-    }
-
-    /**
-     * Get a set of tags associated with this run
-     *
-     * @return array
-     */
-    public function getTags()
-    {
-        return $this->tags;
-    }
-
-    /**
-     * @return float number of seconds this run has been running or did run for (0 for not started)
-     */
-    public function getDuration()
-    {
-        if ($this->isRunning()) {
-            return microtime(true) - $this->started;
-        } elseif (!$this->hasStarted()) {
-            return 0;
-        }
-        return $this->finishedTime - $this->started;
-    }
-
-    /**
-     * @return float[]|null an array of values of the current position, max, and percentage. null if not applicable
-     */
-    public function getProgress()
-    {
-        return [count($this->finished), count($this->items), count($this->finished) / count($this->items)];
-    }
-
-    /**
-     * If the run was unsuccessful, get the error if applicable
-     *
-     * @return Exception[]|Throwable[]
-     */
-    public function getExceptions()
-    {
-        return $this->exceptions;
-    }
-
-    /**
-     * @return float The priority for this run, where the larger the number the higher the priority
-     */
-    public function getPriority()
-    {
-        return $this->priority;
+        return array_values($this->complete);
     }
 }

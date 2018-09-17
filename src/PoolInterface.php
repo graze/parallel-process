@@ -53,7 +53,7 @@ interface PoolInterface extends \Countable, DispatcherInterface
     public function run($interval = self::CHECK_INTERVAL);
 
     /**
-     * @return Traversable
+     * @return mixed[]
      */
     public function getAll();
 

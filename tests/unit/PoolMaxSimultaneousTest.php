@@ -14,8 +14,8 @@
 
 namespace Graze\ParallelProcess\Test\Unit;
 
-use Graze\ParallelProcess\Pool;
-use Graze\ParallelProcess\Run;
+use Graze\ParallelProcess\PriorityPool;
+use Graze\ParallelProcess\ProcessRun;
 use Graze\ParallelProcess\Test\TestCase;
 use Mockery;
 use Symfony\Component\Process\Process;
@@ -37,7 +37,7 @@ class PoolMaxSimultaneousTest extends TestCase
 
     public function testProperties()
     {
-        $pool = new Pool();
+        $pool = new PriorityPool();
 
         $this->assertEquals(-1, $pool->getMaxSimultaneous());
         $this->assertSame($pool, $pool->setMaxSimultaneous(1));
@@ -46,22 +46,26 @@ class PoolMaxSimultaneousTest extends TestCase
 
     public function testSingleMaxAdding2Processes()
     {
-        $pool = new Pool();
+        $pool = new PriorityPool();
         $this->assertSame($pool, $pool->setMaxSimultaneous(1));
 
         $this->assertEquals(1, $pool->getMaxSimultaneous());
 
-        $pool->add($this->process);
+        $process1 = Mockery::mock(Process::class);
+        $process1->shouldReceive('stop');
+        $process1->shouldReceive('isStarted')->andReturn(false, false, false, true); //add, add2, start, check
+        $process1->shouldReceive('isRunning')->andReturn(false); //add, add2, check
 
-        $process = Mockery::mock(Process::class);
-        $process->shouldReceive('stop');
-        $process->shouldReceive('isStarted')->andReturn(false);
-        $process->shouldReceive('isRunning')->andReturn(false);
+        $pool->add($process1);
 
-        $pool->add($process);
+        $process2 = Mockery::mock(Process::class);
+        $process2->shouldReceive('stop');
+        $process2->shouldReceive('isStarted')->andReturn(false, false, false, true); //add, add2, start, check
+        $process2->shouldReceive('isRunning')->andReturn(false); //add, add2, check
 
-        $this->process->shouldReceive('start');
+        $pool->add($process2);
 
+        $process1->shouldReceive('start')->once();
         $pool->start();
 
         $this->assertCount(1, $pool->getRunning());
@@ -69,15 +73,16 @@ class PoolMaxSimultaneousTest extends TestCase
 
         $running = $pool->getRunning();
         $run = reset($running);
-        $this->assertInstanceOf(Run::class, $run);
-        $this->assertSame($this->process, $run->getProcess(), 'first process added should be run first');
+        $this->assertInstanceOf(ProcessRun::class, $run);
+        $this->assertSame($process1, $run->getProcess(), 'first process added should be run first');
 
         $waiting = $pool->getWaiting();
         $run = reset($waiting);
-        $this->assertInstanceOf(Run::class, $run);
-        $this->assertSame($process, $run->getProcess(), 'second process added should be waiting');
+        $this->assertInstanceOf(ProcessRun::class, $run);
+        $this->assertSame($process2, $run->getProcess(), 'second process added should be waiting');
 
-        $process->shouldReceive('start');
+        $process1->shouldReceive('isSuccessful')->andReturn(true);
+        $process2->shouldReceive('start');
 
         $this->assertTrue($pool->poll()); // check running state
 
@@ -86,9 +91,11 @@ class PoolMaxSimultaneousTest extends TestCase
 
         $running = $pool->getRunning();
         $run = reset($running);
-        $this->assertInstanceOf(Run::class, $run);
-        $this->assertSame($process, $run->getProcess(), 'second process added should now be running');
+        $this->assertInstanceOf(ProcessRun::class, $run);
+        $this->assertSame($process2, $run->getProcess(), 'second process added should now be running');
 
+        $process2->shouldReceive('isSuccessful')->andReturn(true);
+        $process2->shouldReceive('isSuccessful')->andReturn(true);
         $this->assertFalse($pool->poll());
 
         $this->assertCount(0, $pool->getRunning());
@@ -97,7 +104,7 @@ class PoolMaxSimultaneousTest extends TestCase
 
     public function testAddingTooManyProcessesPutsThemOnTheWaitingList()
     {
-        $pool = new Pool([], 1);
+        $pool = new PriorityPool([], 1);
         $this->assertEquals(1, $pool->getMaxSimultaneous());
 
         $pool->add($this->process);

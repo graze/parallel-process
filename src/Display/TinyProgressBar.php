@@ -11,7 +11,7 @@
  * @link    https://github.com/graze/parallel-process
  */
 
-namespace Graze\ParallelProcess;
+namespace Graze\ParallelProcess\Display;
 
 use InvalidArgumentException;
 

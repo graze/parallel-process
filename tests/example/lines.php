@@ -21,7 +21,7 @@ use Symfony\Component\Process\Process;
 
 $output = new ConsoleOutput(ConsoleOutput::VERBOSITY_VERY_VERBOSE);
 
-$pool = new \Graze\ParallelProcess\Pool();
+$pool = new \Graze\ParallelProcess\PriorityPool();
 $pool->setMaxSimultaneous(3);
 for ($i = 0; $i < 5; $i++) {
     $time = $i + 5;

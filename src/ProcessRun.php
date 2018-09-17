@@ -20,14 +20,13 @@ use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
 use Throwable;
 
-class Run implements RunInterface, OutputterInterface
+class ProcessRun implements RunInterface, OutputterInterface
 {
     use EventDispatcherTrait;
+    use RunningStateTrait;
 
     /** @var Process */
     private $process;
-    /** @var float */
-    private $started = 0;
     /** @var bool */
     private $successful = false;
     /** @var bool */
@@ -62,7 +61,7 @@ class Run implements RunInterface, OutputterInterface
     /**
      * @param float $priority
      *
-     * @return Run
+     * @return ProcessRun
      */
     public function setPriority($priority)
     {
@@ -92,7 +91,7 @@ class Run implements RunInterface, OutputterInterface
     public function start()
     {
         if (!$this->process->isStarted()) {
-            $this->started = microtime(true);
+            $this->setStarted();
             $this->dispatch(RunEvent::STARTED, new RunEvent($this));
             $this->process->start(
                 function ($type, $data) {
@@ -133,6 +132,7 @@ class Run implements RunInterface, OutputterInterface
         }
 
         $this->completed = true;
+        $this->setFinished();
 
         if ($this->process->isSuccessful()) {
             $this->successful = true;
@@ -223,14 +223,6 @@ class Run implements RunInterface, OutputterInterface
     public function getTags()
     {
         return $this->tags;
-    }
-
-    /**
-     * @return float number of seconds this run has been running for (0 for not started)
-     */
-    public function getDuration()
-    {
-        return $this->started > 0 ? microtime(true) - $this->started : 0;
     }
 
     /**
