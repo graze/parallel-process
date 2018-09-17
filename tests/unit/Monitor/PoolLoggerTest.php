@@ -166,8 +166,10 @@ class PoolLoggerTest extends TestCase
         $this->assertCount(1, $logs);
         list($level, $message, $context) = $logs[0];
         $this->assertEquals(LogLevel::DEBUG, $level);
-        $this->assertRegExp('/^pool \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\] has been added$/i',
-            $message);
+        $this->assertRegExp(
+            '/^pool \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\] has been added$/i',
+            $message
+        );
         $this->assertArraySubset(
             [
                 'pool' => [
