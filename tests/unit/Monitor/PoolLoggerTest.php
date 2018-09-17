@@ -16,20 +16,20 @@ namespace Graze\ParallelProcess\Test\Unit\Display;
 use Graze\ParallelProcess\CallbackRun;
 use Graze\ParallelProcess\Monitor\PoolLogger;
 use Graze\ParallelProcess\Pool;
+use Graze\ParallelProcess\Test\BufferedLogger;
 use Graze\ParallelProcess\Test\TestCase;
 use Psr\Log\LogLevel;
-use Symfony\Component\Debug\BufferingLogger;
 
 class PoolLoggerTest extends TestCase
 {
-    /** @var BufferingLogger */
+    /** @var BufferedLogger */
     private $logger;
     /** @var PoolLogger */
     private $monitor;
 
     public function setUp()
     {
-        $this->logger = new BufferingLogger();
+        $this->logger = new BufferedLogger();
         $this->monitor = new PoolLogger($this->logger);
     }
 
@@ -50,7 +50,7 @@ class PoolLoggerTest extends TestCase
         $this->assertCount(3, $logs); // add, successful, complete
         list($level, $message, $context) = reset($logs);
         $this->assertEquals(LogLevel::DEBUG, $level);
-        $this->assertRegExp('/^run \[[\\a-zA-Z0-9]+\:\d+\]: has started$/i', $message);
+        $this->assertRegExp('/^run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: has started$/i', $message);
         $this->assertArraySubset(
             [
                 'run' => [
@@ -78,7 +78,7 @@ class PoolLoggerTest extends TestCase
         $this->assertCount(3, $logs); // add, successful, complete
         list($level, $message, $context) = $logs[1];
         $this->assertEquals(LogLevel::DEBUG, $level);
-        $this->assertRegExp('/^run \[[\\a-zA-Z0-9]+\:\d+\]: successfully finished$/i', $message);
+        $this->assertRegExp('/^run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: successfully finished$/i', $message);
         $this->assertArraySubset(
             [
                 'run' => [
@@ -107,7 +107,7 @@ class PoolLoggerTest extends TestCase
         $this->assertCount(3, $logs); // add, failed, complete
         list($level, $message, $context) = $logs[1];
         $this->assertEquals(LogLevel::DEBUG, $level);
-        $this->assertRegExp('/^run \[[\\a-zA-Z0-9]+\:\d+\]: failed - failed$/i', $message);
+        $this->assertRegExp('/^run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: failed - failed$/i', $message);
         $this->assertArraySubset(
             [
                 'run'    => [
@@ -136,7 +136,7 @@ class PoolLoggerTest extends TestCase
         $this->assertCount(3, $logs); // add, successful, complete
         list($level, $message, $context) = $logs[2];
         $this->assertEquals(LogLevel::DEBUG, $level);
-        $this->assertRegExp('/^run \[[\\a-zA-Z0-9]+\:\d+\]: has finished running$/i', $message);
+        $this->assertRegExp('/^run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: has finished running$/i', $message);
         $this->assertArraySubset(
             [
                 'run' => [
@@ -166,7 +166,8 @@ class PoolLoggerTest extends TestCase
         $this->assertCount(1, $logs);
         list($level, $message, $context) = $logs[0];
         $this->assertEquals(LogLevel::DEBUG, $level);
-        $this->assertRegExp('/^pool \[[\\a-zA-Z0-9]+\:\d+\]: run \[[\\a-zA-Z0-9]+\:\d+\] has been added$/i', $message);
+        $this->assertRegExp('/^pool \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\] has been added$/i',
+            $message);
         $this->assertArraySubset(
             [
                 'pool' => [
@@ -204,7 +205,7 @@ class PoolLoggerTest extends TestCase
         $this->assertCount(8, $logs);
         list($level, $message, $context) = $logs[1];
         $this->assertEquals(LogLevel::DEBUG, $level);
-        $this->assertRegExp('/^pool \[[\\a-zA-Z0-9]+\:\d+\]: updated$/i', $message);
+        $this->assertRegExp('/^pool \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: updated$/i', $message);
         $this->assertArraySubset(
             [
                 'pool' => [
@@ -218,7 +219,7 @@ class PoolLoggerTest extends TestCase
 
         list($level, $message, $context) = $logs[6];
         $this->assertEquals(LogLevel::DEBUG, $level);
-        $this->assertRegExp('/^run \[[\\a-zA-Z0-9]+\:\d+\]: has finished running$/i', $message);
+        $this->assertRegExp('/^run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: has finished running$/i', $message);
         $this->assertArraySubset(
             [
                 'pool' => [

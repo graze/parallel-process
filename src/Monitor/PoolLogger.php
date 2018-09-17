@@ -62,11 +62,11 @@ class PoolLogger
     {
         $this->logger->debug(
             sprintf(
-                'pool [%s:%d]: Run [%s:%d] has been added',
+                'pool [%s:%s]: Run [%s:%s] has been added',
                 get_class($event->getPool()),
-                spl_object_id($event->getPool()),
+                spl_object_hash($event->getPool()),
                 get_class($event->getRun()),
-                spl_object_id($event->getRun())
+                spl_object_hash($event->getRun())
             ),
             array_merge($this->getTags($event->getPool()), $this->getTags($event->getRun()))
         );
@@ -81,7 +81,7 @@ class PoolLogger
         $pool = $event->getRun();
         if ($pool instanceof PoolInterface) {
             $this->logger->debug(
-                sprintf('pool [%s:%d]: updated', get_class($event->getRun()), spl_object_id($pool)),
+                sprintf('pool [%s:%s]: updated', get_class($event->getRun()), spl_object_hash($pool)),
                 $this->getTags($pool)
             );
         }
@@ -93,7 +93,7 @@ class PoolLogger
     public function onRunStarted(RunEvent $event)
     {
         $this->logger->debug(
-            sprintf('run [%s:%d]: has started', get_class($event->getRun()), spl_object_id($event->getRun())),
+            sprintf('run [%s:%s]: has started', get_class($event->getRun()), spl_object_hash($event->getRun())),
             $this->getTags($event->getRun())
         );
     }
@@ -104,7 +104,7 @@ class PoolLogger
     public function onRunSuccessful(RunEvent $event)
     {
         $this->logger->debug(
-            sprintf('run [%s:%d]: successfully finished', get_class($event->getRun()), spl_object_id($event->getRun())),
+            sprintf('run [%s:%s]: successfully finished', get_class($event->getRun()), spl_object_hash($event->getRun())),
             $this->getTags($event->getRun())
         );
     }
@@ -122,9 +122,9 @@ class PoolLogger
         );
         $this->logger->debug(
             sprintf(
-                'run [%s:%d]: failed - %s',
+                'run [%s:%s]: failed - %s',
                 get_class($event->getRun()),
-                spl_object_id($event->getRun()),
+                spl_object_hash($event->getRun()),
                 count($errors) > 0 ? reset($errors) : ''
             ),
             array_merge(['errors' => $errors], $this->getTags($event->getRun()))
@@ -137,7 +137,7 @@ class PoolLogger
     public function onRunCompleted(RunEvent $event)
     {
         $this->logger->debug(
-            sprintf('run [%s:%d]: has finished running', get_class($event->getRun()), spl_object_id($event->getRun())),
+            sprintf('run [%s:%s]: has finished running', get_class($event->getRun()), spl_object_hash($event->getRun())),
             $this->getTags($event->getRun())
         );
     }
@@ -172,7 +172,7 @@ class PoolLogger
             'pool' => array_merge(
                 [
                     'type'         => get_class($pool),
-                    'id'           => spl_object_id($pool),
+                    'id'           => spl_object_hash($pool),
                     'num_waiting'  => count($pool->getWaiting()),
                     'num_running'  => count($pool->getRunning()),
                     'num_finished' => count($pool->getFinished()),
@@ -192,7 +192,7 @@ class PoolLogger
         return [
             'run' => [
                 'type'         => get_class($run),
-                'id'           => spl_object_id($run),
+                'id'           => spl_object_hash($run),
                 'tags'         => $run->getTags(),
                 'hasStarted'   => $run->hasStarted(),
                 'isRunning'    => $run->isRunning(),
