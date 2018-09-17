@@ -15,7 +15,7 @@
 $composer = require_once __DIR__ . '/../../vendor/autoload.php';
 $composer->setUseIncludePath(true);
 
-use Graze\ParallelProcess\Lines;
+use Graze\ParallelProcess\Display\Lines;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Process\Process;
 

@@ -15,7 +15,7 @@
 $composer = require_once __DIR__ . '/../../vendor/autoload.php';
 $composer->setUseIncludePath(true);
 
-use Graze\ParallelProcess\Table;
+use Graze\ParallelProcess\Display\Table;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Process\Process;
 
