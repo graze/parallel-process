@@ -50,9 +50,9 @@ class TinyProgressBar
      *
      * @param int    $numChars The number of characters to use for the bar
      * @param string $format   The format for the bar
-     * @param int    $max      The maximum value for a bar
+     * @param float  $max      The maximum value for a bar
      */
-    public function __construct($numChars, $format = self::FORMAT_DEFAULT, $max = 100)
+    public function __construct($numChars, $format = self::FORMAT_DEFAULT, $max = 100.0)
     {
         $this->setLength($numChars);
         $this->setMax($max);

@@ -29,7 +29,7 @@ class CallbackRun implements RunInterface, OutputterInterface
     private $successful = false;
     /** @var string[] */
     private $tags;
-    /** @var Exception|null */
+    /** @var Exception|Throwable|null */
     private $exception = null;
     /** @var string */
     private $last;

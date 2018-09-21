@@ -150,6 +150,10 @@ class Table
      */
     private function getSummary()
     {
+        if (!$this->pool instanceof RunInterface) {
+            return '';
+        }
+
         if ($this->pool->hasStarted()) {
             if ($this->pool->isRunning()) {
                 return sprintf(
