@@ -14,10 +14,15 @@
 namespace Graze\ParallelProcess;
 
 use Exception;
+use Graze\ParallelProcess\Event\DispatcherInterface;
 use Throwable;
 
-interface RunInterface
+interface RunInterface extends DispatcherInterface
 {
+    const STATE_NOT_STARTED = 0;
+    const STATE_RUNNING     = 1;
+    const STATE_NOT_RUNNING = 2;
+
     /**
      * Has this run been started before
      *
@@ -72,14 +77,6 @@ interface RunInterface
     public function getTags();
 
     /**
-     * @param string   $name    The name of the event: 'started', 'completed', 'failed', 'updated'
-     * @param callable $handler The handler for the event
-     *
-     * @return void
-     */
-    public function addListener($name, callable $handler);
-
-    /**
      * @return float number of seconds this run has been running for (0 for not started)
      */
     public function getDuration();
@@ -88,4 +85,9 @@ interface RunInterface
      * @return float[]|null an array of values of the current position, max, and percentage. null if not applicable
      */
     public function getProgress();
+
+    /**
+     * @return float The priority for this run, where the larger the number the higher the priority
+     */
+    public function getPriority();
 }

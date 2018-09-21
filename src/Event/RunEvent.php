@@ -18,10 +18,11 @@ use Symfony\Component\EventDispatcher\Event;
 
 class RunEvent extends Event
 {
-    const STARTED   = 'started';
-    const COMPLETED = 'completed';
-    const FAILED    = 'failed';
-    const UPDATED   = 'updated';
+    const STARTED    = 'started';
+    const COMPLETED  = 'completed';
+    const FAILED     = 'failed';
+    const UPDATED    = 'updated';
+    const SUCCESSFUL = 'successful';
 
     /** @var RunInterface */
     private $run;

@@ -11,11 +11,11 @@
  * @link    https://github.com/graze/parallel-process
  */
 
-namespace Graze\ParallelProcess\Test\Unit;
+namespace Graze\ParallelProcess\Test\Unit\Display;
 
-use Graze\ParallelProcess\Pool;
-use Graze\ParallelProcess\Run;
-use Graze\ParallelProcess\Table;
+use Graze\ParallelProcess\PriorityPool;
+use Graze\ParallelProcess\ProcessRun;
+use Graze\ParallelProcess\Display\Table;
 use Graze\ParallelProcess\Test\BufferDiffOutput;
 use Graze\ParallelProcess\Test\TestCase;
 use Mockery;
@@ -37,7 +37,7 @@ class TableTest extends TestCase
     {
         mb_internal_encoding("UTF-8");
         $this->bufferOutput = new BufferDiffOutput();
-        $this->pool = Mockery::mock(Pool::class)->makePartial();
+        $this->pool = new PriorityPool();
         $this->table = new Table($this->bufferOutput, $this->pool);
     }
 
@@ -81,10 +81,10 @@ class TableTest extends TestCase
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
         $process->shouldReceive('start')->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, false, true); //add, add2, start, run
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
+            false, // add2
             true,  // check
             true,  // ...
             true,
@@ -131,10 +131,10 @@ class TableTest extends TestCase
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
         $process->shouldReceive('start')->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, false, true); // add, add2, start, run
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
+            false, // add
             true,  // check
             true,  // ...
             true,
@@ -159,7 +159,7 @@ class TableTest extends TestCase
         );
         $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
 
-        $run = Mockery::mock(Run::class, [$process, ['key' => 'value']])->makePartial();
+        $run = Mockery::mock(ProcessRun::class, [$process, ['key' => 'value']])->makePartial();
         $this->pool->add($run);
 
         $run->allows()
@@ -251,10 +251,10 @@ class TableTest extends TestCase
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
         $process->shouldReceive('start')->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, false, true); // add, start, run
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
+            false, // add2
             true,  // check
             false // complete
         );
@@ -287,8 +287,9 @@ class TableTest extends TestCase
             call_user_func($closure, Process::OUT, 'some text');
             return true;
         }))->once();
-        $process->shouldReceive('isStarted')->andReturn(false, true);
-        $process->shouldReceive('isRunning')->andReturn(false, false, true, false); // add, start, check, check
+        $process->shouldReceive('isStarted')
+                ->andReturn(false, false, false, false, true); // add, add2, summary, start, run
+        $process->shouldReceive('isRunning')->andReturn(false, false, true, false); // add, add2, check, check
         $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
         $process->shouldReceive('getOutput')->andReturn('some text');
 
@@ -352,8 +353,13 @@ class TableTest extends TestCase
                 call_user_func($closure, Process::OUT, 'some text');
                 return true;
             }))->once();
-            $process->shouldReceive('isStarted')->andReturn(true);
-            $process->shouldReceive('isRunning')->andReturn(false, false, true, false); // add, start, check, check
+            if ($showSummary) {
+                $process->shouldReceive('isStarted')
+                        ->andReturn(false, false, false, false, true); // add, add2, summary, start, run
+            } else {
+                $process->shouldReceive('isStarted')->andReturn(false, false, false, true); // add, add2, start, run
+            }
+            $process->shouldReceive('isRunning')->andReturn(false, false, true, false); // add, add2, check, check
             $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn($processStates[$i]);
             $process->shouldReceive('getOutput')->andReturn('some text');
 
@@ -567,7 +573,7 @@ DOC
                   [
                       '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) %',
                       '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) %',
-                      '%^$%',
+                      '%^waiting...$%',
                   ],
                   [
                       '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]%',
@@ -587,7 +593,7 @@ DOC
                   [
                       '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
                       '%<info>key</info>: value <info>run</info>: 1 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',
-                      '%<comment>Total</comment>:  2, <comment>Running</comment>:  2, <comment>Waiting</comment>:  0%',
+                      '%<comment>Total</comment>:  2, <comment>Running</comment>:  1, <comment>Waiting</comment>:  0%',
                   ],
                   [
                       '%<info>key</info>: value <info>run</info>: 0 \(<comment>[ 0-9\.s]+</comment>\) <info>✓</info>%',

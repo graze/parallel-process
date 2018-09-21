@@ -21,21 +21,20 @@ use Throwable;
 class CallbackRun implements RunInterface, OutputterInterface
 {
     use EventDispatcherTrait;
+    use RunningStateTrait;
 
     /** @var callable */
     private $callback;
-    /** @var float */
-    private $started = 0;
-    /** @var float */
-    private $finished = 0;
     /** @var bool */
     private $successful = false;
     /** @var string[] */
     private $tags;
-    /** @var Exception|null */
+    /** @var Exception|Throwable|null */
     private $exception = null;
     /** @var string */
     private $last;
+    /** @var float */
+    private $priority;
 
     /**
      * Run constructor.
@@ -43,11 +42,24 @@ class CallbackRun implements RunInterface, OutputterInterface
      * @param callable $callback A callback to run, if this returns a string, it can be accessed from the
      *                           `->getLastMessage()` calls
      * @param string[] $tags     List of key value tags associated with this run
+     * @param float    $priority
      */
-    public function __construct(callable $callback, array $tags = [])
+    public function __construct(callable $callback, array $tags = [], $priority = 1.0)
     {
         $this->callback = $callback;
         $this->tags = $tags;
+        $this->priority = $priority;
+    }
+
+    /**
+     * @param float $priority
+     *
+     * @return CallbackRun
+     */
+    public function setPriority($priority)
+    {
+        $this->priority = $priority;
+        return $this;
     }
 
     /**
@@ -58,6 +70,7 @@ class CallbackRun implements RunInterface, OutputterInterface
         return [
             RunEvent::STARTED,
             RunEvent::COMPLETED,
+            RunEvent::SUCCESSFUL,
             RunEvent::FAILED,
             RunEvent::UPDATED,
         ];
@@ -70,20 +83,29 @@ class CallbackRun implements RunInterface, OutputterInterface
      */
     public function start()
     {
-        if ($this->started == 0) {
-            $this->started = microtime(true);
+        if (!$this->hasStarted()) {
+            $this->setStarted();
             $this->dispatch(RunEvent::STARTED, new RunEvent($this));
             try {
-                $output = call_user_func($this->callback);
-                $this->handleOutput($output);
-                $this->finished = microtime(true);
-                $this->successful = true;
+                try {
+                    $output = call_user_func($this->callback);
+                    $this->handleOutput($output);
+                    $this->setFinished();
+                    $this->successful = true;
+                    $this->dispatch(RunEvent::SUCCESSFUL, new RunEvent($this));
+                } catch (Exception $e) {
+                    $this->setFinished();
+                    $this->successful = false;
+                    $this->exception = $e;
+                    $this->dispatch(RunEvent::FAILED, new RunEvent($this));
+                } catch (Throwable $e) {
+                    $this->setFinished();
+                    $this->successful = false;
+                    $this->exception = $e;
+                    $this->dispatch(RunEvent::FAILED, new RunEvent($this));
+                }
+            } finally {
                 $this->dispatch(RunEvent::COMPLETED, new RunEvent($this));
-            } catch (Exception $e) {
-                $this->finished = microtime(true);
-                $this->successful = false;
-                $this->exception = $e;
-                $this->dispatch(RunEvent::FAILED, new RunEvent($this));
             }
         }
 
@@ -145,7 +167,7 @@ class CallbackRun implements RunInterface, OutputterInterface
      */
     public function hasStarted()
     {
-        return $this->started > 0;
+        return $this->getState() !== RunInterface::STATE_NOT_STARTED;
     }
 
     /**
@@ -154,17 +176,6 @@ class CallbackRun implements RunInterface, OutputterInterface
     public function getTags()
     {
         return $this->tags;
-    }
-
-    /**
-     * @return float number of seconds this run has been running for (0 for not started)
-     */
-    public function getDuration()
-    {
-        if ($this->finished > 0) {
-            return $this->finished - $this->started;
-        }
-        return $this->started > 0 ? microtime(true) - $this->started : 0;
     }
 
     /**
@@ -204,5 +215,13 @@ class CallbackRun implements RunInterface, OutputterInterface
     public function getLastMessageType()
     {
         return '';
+    }
+
+    /**
+     * @return float The priority for this run, where the larger the number the higher the priority
+     */
+    public function getPriority()
+    {
+        return $this->priority;
     }
 }

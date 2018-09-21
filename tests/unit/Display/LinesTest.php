@@ -11,17 +11,18 @@
  * @link    https://github.com/graze/parallel-process
  */
 
-namespace Graze\ParallelProcess\Test\Unit;
+namespace Graze\ParallelProcess\Test\Unit\Display;
 
-use Exception;
+use Graze\ParallelProcess\CallbackRun;
 use Graze\ParallelProcess\Event\RunEvent;
-use Graze\ParallelProcess\Lines;
-use Graze\ParallelProcess\Pool;
-use Graze\ParallelProcess\Run;
+use Graze\ParallelProcess\Display\Lines;
+use Graze\ParallelProcess\PriorityPool;
+use Graze\ParallelProcess\ProcessRun;
 use Graze\ParallelProcess\RunInterface;
 use Graze\ParallelProcess\Test\BufferDiffOutput;
 use Graze\ParallelProcess\Test\TestCase;
 use Mockery;
+use RuntimeException;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Process;
 
@@ -38,7 +39,7 @@ class LinesTest extends TestCase
     {
         mb_internal_encoding("UTF-8");
         $this->bufferOutput = new BufferDiffOutput();
-        $this->pool = Mockery::mock(Pool::class)->makePartial();
+        $this->pool = new PriorityPool();
         $this->lines = new Lines($this->bufferOutput, $this->pool);
     }
 
@@ -93,10 +94,10 @@ class LinesTest extends TestCase
                 }
             )
         )->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, false, true); // add, start, start, check
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
+            false, // add2
             true,  // check
             true,  // ...
             true,
@@ -143,10 +144,10 @@ class LinesTest extends TestCase
                 }
             )
         )->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, false, true); // add, add2, start, check
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
+            false, // add2
             true,  // check
             false // complete
         );
@@ -181,10 +182,10 @@ class LinesTest extends TestCase
                 }
             )
         )->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, false, true); // add, add2, start, check
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
+            false, // add2
             true,  // check
             true,  // ...
             true,
@@ -218,10 +219,10 @@ class LinesTest extends TestCase
                 }
             )
         )->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, false, true); // add, add2, start, check
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
+            false, // add2
             true,  // check
             true,  // ...
             true,
@@ -299,10 +300,10 @@ TEXT
                 }
             )
         )->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, false, true); // add, start, check
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
+            false, // add2
             true,  // check
             true,  // ...
             true,
@@ -338,10 +339,10 @@ TEXT
                 }
             )
         )->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, false, true); // add, add2, start, check
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
+            false, // add2
             true,  // check
             true,  // ...
             true,
@@ -377,10 +378,10 @@ TEXT
                 }
             )
         )->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, false, true); // add, add2, start, check
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
+            false, // add2
             true,  // check
             true,  // ...
             true,
@@ -390,7 +391,7 @@ TEXT
         $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
         $process->shouldReceive('getOutput')->andReturn('first line');
 
-        $run = Mockery::mock(Run::class, [$process, ['key' => 'value']])->makePartial();
+        $run = Mockery::mock(ProcessRun::class, [$process, ['key' => 'value']])->makePartial();
         $run->allows()
             ->getProgress()
             ->andReturns([0, 100, 0], [50, 100, 0.5], [100, 100, 1]);
@@ -421,10 +422,10 @@ TEXT
                 }
             )
         )->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, false, false, true); // add, add2, start, check
         $process->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
+            false, // add2
             true,  // check
             true,  // ...
             true,
@@ -434,7 +435,7 @@ TEXT
         $process->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(true);
         $process->shouldReceive('getOutput')->andReturn('first line');
 
-        $run = Mockery::mock(Run::class, [$process, ['key' => 'value']])->makePartial();
+        $run = Mockery::mock(ProcessRun::class, [$process, ['key' => 'value']])->makePartial();
         $run->allows()
             ->getProgress()
             ->andReturns([0, 100, 0], [50, 100, 0.5], [100, 100, 1]);
@@ -456,73 +457,17 @@ TEXT
 
     public function testNonProcessRunFailure()
     {
-        $run = Mockery::mock(RunInterface::class);
-        $run->shouldReceive('stop');
-        $run->shouldReceive('start')->once();
-        $run->shouldReceive('hasStarted')->andReturn(true);
-        $run->shouldReceive('isRunning')->andReturn(
-            false, // add
-            false, // start
-            true,  // check
-            true,  // ...
-            true,
-            true,
-            false // complete
+        $exception = new RuntimeException('some error', 5);
+        $run = new CallbackRun(
+            function () use ($exception) {
+                throw $exception;
+            },
+            ['key' => 'value']
         );
-        $run->shouldReceive('poll')->andReturn(
-            true,  // check
-            true,  // ...
-            true,
-            true,
-            false // complete
-        );
-        $run->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(false);
-
-        $startedEvent = $completedEvent = $updatedEvent = null;
-        $failedEvents = [];
-
-        $run->allows()->addListener(
-            RunEvent::STARTED,
-            Mockery::on(function (callable $callback) use (&$startedEvent) {
-                $startedEvent = $callback;
-                return true;
-            })
-        );
-        $run->allows()->addListener(
-            RunEvent::COMPLETED,
-            Mockery::on(function (callable $callback) use (&$completedEvent) {
-                $completedEvent = $callback;
-                return true;
-            })
-        );
-        $run->allows()->addListener(
-            RunEvent::FAILED,
-            Mockery::on(function (callable $callback) use (&$failedEvents) {
-                $failedEvents[] = $callback;
-                return true;
-            })
-        );
-        $run->allows()->addListener(
-            RunEvent::UPDATED,
-            Mockery::on(function (callable $callback) use (&$updatedEvent) {
-                $updatedEvent = $callback;
-                return true;
-            })
-        );
-        $run->allows(['getTags' => ['key' => 'value'], 'getProgress' => null]);
 
         $this->pool->add($run);
 
         $this->lines->run(0);
-
-        $run->allows()->getDuration()->andReturns(0, 0.1);
-
-        $run->allows()->getExceptions()->andReturns([new Exception('some error', 5)]);
-
-        call_user_func($startedEvent, new RunEvent($run));
-        foreach ($failedEvents as $failedEvent) {
-            call_user_func($failedEvent, new RunEvent($run));
-        }
 
         $expected = [
             ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <fg=blue>→ Started</>%'],
@@ -538,10 +483,10 @@ TEXT
         $run = Mockery::mock(RunInterface::class);
         $run->shouldReceive('stop');
         $run->shouldReceive('start')->once();
-        $run->shouldReceive('hasStarted')->andReturn(true);
+        $run->shouldReceive('hasStarted')->andReturn(false, false, false, true);
         $run->shouldReceive('isRunning')->andReturn(
             false, // add
-            false, // start
+            false, // add2
             true,  // check
             true,  // ...
             true,
@@ -555,9 +500,10 @@ TEXT
             true,
             false // complete
         );
-        $run->shouldReceive('isSuccessful')->atLeast()->once()->andReturn(false);
+        $run->shouldReceive('isSuccessful')->atLeast()->andReturn(false);
+        $run->shouldReceive('getPriority')->atLeast()->once()->andReturn(1.0);
 
-        $startedEvent = $completedEvent = $updatedEvent = null;
+        $startedEvent = $completedEvent = $updatedEvent = $successfulEvent = null;
         $failedEvents = [];
 
         $run->allows()->addListener(
@@ -585,6 +531,13 @@ TEXT
             RunEvent::UPDATED,
             Mockery::on(function (callable $callback) use (&$updatedEvent) {
                 $updatedEvent = $callback;
+                return true;
+            })
+        );
+        $run->allows()->addListener(
+            RunEvent::SUCCESSFUL,
+            Mockery::on(function (callable $callback) use (&$successfulEvent) {
+                $successfulEvent = $callback;
                 return true;
             })
         );
@@ -602,6 +555,7 @@ TEXT
         foreach ($failedEvents as $failedEvent) {
             call_user_func($failedEvent, new RunEvent($run));
         }
+        call_user_func($completedEvent, new RunEvent($run));
 
         $expected = [
             ['%<info>key</info>: <options=bold;fg=\w+>value</> \(<comment>[ 0-9\.s]+</comment>\) <fg=blue>→ Started</>%'],

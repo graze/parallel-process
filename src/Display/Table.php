@@ -11,13 +11,18 @@
  * @link    https://github.com/graze/parallel-process
  */
 
-namespace Graze\ParallelProcess;
+namespace Graze\ParallelProcess\Display;
 
 use Exception;
 use Graze\DiffRenderer\DiffConsoleOutput;
 use Graze\DiffRenderer\Terminal\TerminalInterface;
 use Graze\ParallelProcess\Event\PoolRunEvent;
 use Graze\ParallelProcess\Event\RunEvent;
+use Graze\ParallelProcess\OutputterInterface;
+use Graze\ParallelProcess\PoolInterface;
+use Graze\ParallelProcess\PriorityPool;
+use Graze\ParallelProcess\ProcessRun;
+use Graze\ParallelProcess\RunInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class Table
@@ -26,8 +31,8 @@ class Table
 
     const SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
 
-    /** @var Pool */
-    private $processPool;
+    /** @var PoolInterface */
+    private $pool;
     /** @var string[] */
     private $rows = [];
     /** @var Exception[] */
@@ -44,12 +49,12 @@ class Table
     /**
      * Table constructor.
      *
-     * @param OutputInterface $output
-     * @param Pool|null       $pool
+     * @param OutputInterface    $output
+     * @param PoolInterface|null $pool
      */
-    public function __construct(OutputInterface $output, Pool $pool = null)
+    public function __construct(OutputInterface $output, PoolInterface $pool = null)
     {
-        $this->processPool = $pool ?: new Pool();
+        $this->pool = $pool ?: new PriorityPool();
         if (!$output instanceof DiffConsoleOutput) {
             $this->output = new DiffConsoleOutput($output);
             $this->output->setTrim(true);
@@ -59,14 +64,14 @@ class Table
         $this->terminal = $this->output->getTerminal();
         $this->exceptions = [];
 
-        $this->processPool->addListener(
+        $this->pool->addListener(
             PoolRunEvent::POOL_RUN_ADDED,
             function (PoolRunEvent $event) {
                 $this->add($event->getRun());
             }
         );
 
-        array_map([$this, 'add'], $this->processPool->getAll());
+        array_map([$this, 'add'], $this->pool->getAll());
     }
 
     /**
@@ -119,7 +124,7 @@ class Table
         }
 
         $run->addListener(
-            RunEvent::COMPLETED,
+            RunEvent::SUCCESSFUL,
             function (RunEvent $event) use ($index, &$bar, &$spinner) {
                 $this->rows[$index] = $this->formatRow($event->getRun(), "<info>✓</info>");
                 $this->render($index);
@@ -134,7 +139,7 @@ class Table
                 $this->exceptions += $run->getExceptions();
             }
         );
-        if ($run instanceof Run) {
+        if ($run instanceof ProcessRun) {
             $run->setUpdateOnProcessOutput(false);
         }
         $this->updateRowKeyLengths($run->getTags());
@@ -145,13 +150,17 @@ class Table
      */
     private function getSummary()
     {
-        if ($this->processPool->hasStarted()) {
-            if ($this->processPool->isRunning()) {
+        if (!$this->pool instanceof RunInterface) {
+            return '';
+        }
+
+        if ($this->pool->hasStarted()) {
+            if ($this->pool->isRunning()) {
                 return sprintf(
                     '<comment>Total</comment>: %2d, <comment>Running</comment>: %2d, <comment>Waiting</comment>: %2d',
-                    $this->processPool->count(),
-                    count($this->processPool->getRunning()),
-                    count($this->processPool->getWaiting())
+                    $this->pool->count(),
+                    count($this->pool->getRunning()),
+                    count($this->pool->getWaiting())
                 );
             } else {
                 return '';
@@ -182,12 +191,12 @@ class Table
      * @return bool true if all processes were successful
      * @throws Exception
      */
-    public function run($checkInterval = Pool::CHECK_INTERVAL)
+    public function run($checkInterval = PriorityPool::CHECK_INTERVAL)
     {
         if ($this->output->getVerbosity() >= OutputInterface::VERBOSITY_VERBOSE) {
             $this->render();
         }
-        $output = $this->processPool->run($checkInterval);
+        $output = $this->pool->run($checkInterval);
         if ($this->output->getVerbosity() >= OutputInterface::VERBOSITY_VERBOSE && $this->showSummary) {
             $this->render();
         }

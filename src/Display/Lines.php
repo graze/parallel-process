@@ -11,12 +11,17 @@
  * @link    https://github.com/graze/parallel-process
  */
 
-namespace Graze\ParallelProcess;
+namespace Graze\ParallelProcess\Display;
 
 use Graze\DiffRenderer\DiffConsoleOutput;
 use Graze\DiffRenderer\Terminal\TerminalInterface;
 use Graze\ParallelProcess\Event\PoolRunEvent;
 use Graze\ParallelProcess\Event\RunEvent;
+use Graze\ParallelProcess\OutputterInterface;
+use Graze\ParallelProcess\PoolInterface;
+use Graze\ParallelProcess\PriorityPool;
+use Graze\ParallelProcess\ProcessRun;
+use Graze\ParallelProcess\RunInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class Lines
@@ -27,8 +32,8 @@ class Lines
     private $output;
     /** @var TerminalInterface */
     private $terminal;
-    /** @var Pool */
-    private $processPool;
+    /** @var PoolInterface */
+    private $pool;
     /** @var bool */
     private $showDuration = true;
     /** @var bool */
@@ -47,10 +52,10 @@ class Lines
     /**
      * Lines constructor.
      *
-     * @param OutputInterface $output
-     * @param Pool|null       $pool
+     * @param OutputInterface    $output
+     * @param PoolInterface|null $pool
      */
-    public function __construct(OutputInterface $output, Pool $pool = null)
+    public function __construct(OutputInterface $output, PoolInterface $pool = null)
     {
         $this->output = $output;
         if (!$output instanceof DiffConsoleOutput) {
@@ -60,16 +65,16 @@ class Lines
             $this->output = $output;
         }
         $this->terminal = $this->output->getTerminal();
-        $this->processPool = $pool ?: new Pool();
+        $this->pool = $pool ?: new PriorityPool();
 
-        $this->processPool->addListener(
+        $this->pool->addListener(
             PoolRunEvent::POOL_RUN_ADDED,
             function (PoolRunEvent $event) {
                 $this->add($event->getRun());
             }
         );
 
-        array_map([$this, 'add'], $this->processPool->getAll());
+        array_map([$this, 'add'], $this->pool->getAll());
     }
 
     /**
@@ -185,7 +190,7 @@ class Lines
             }
         );
         $run->addListener(
-            RunEvent::COMPLETED,
+            RunEvent::SUCCESSFUL,
             function (RunEvent $event) use ($index) {
                 $run = $event->getRun();
                 $this->output->writeln(
@@ -216,7 +221,7 @@ class Lines
             }
         );
 
-        if ($run instanceof Run) {
+        if ($run instanceof ProcessRun) {
             $run->setUpdateOnPoll(false);
         }
         $this->updateRowKeyLengths($run->getTags());
@@ -257,8 +262,8 @@ class Lines
      *
      * @return bool true if all processes were successful
      */
-    public function run($checkInterval = Pool::CHECK_INTERVAL)
+    public function run($checkInterval = PriorityPool::CHECK_INTERVAL)
     {
-        return $this->processPool->run($checkInterval);
+        return $this->pool->run($checkInterval);
     }
 }

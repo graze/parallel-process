@@ -11,19 +11,15 @@
  * @link    https://github.com/graze/parallel-process
  */
 
-namespace Graze\ParallelProcess;
+namespace Graze\ParallelProcess\Event;
 
-interface OutputterInterface
+interface DispatcherInterface
 {
     /**
-     * Get the last message that this thing produced
+     * @param string   $name
+     * @param callable $handler
      *
-     * @return string
+     * @return $this
      */
-    public function getLastMessage();
-
-    /**
-     * @return string
-     */
-    public function getLastMessageType();
+    public function addListener($name, callable $handler);
 }

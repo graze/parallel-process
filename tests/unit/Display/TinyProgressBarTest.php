@@ -11,10 +11,10 @@
  * @link    https://github.com/graze/parallel-process
  */
 
-namespace Graze\ParallelProcess\Test\Unit;
+namespace Graze\ParallelProcess\Test\Unit\Display;
 
+use Graze\ParallelProcess\Display\TinyProgressBar;
 use Graze\ParallelProcess\Test\TestCase;
-use Graze\ParallelProcess\TinyProgressBar;
 
 class TinyProgressBarTest extends TestCase
 {

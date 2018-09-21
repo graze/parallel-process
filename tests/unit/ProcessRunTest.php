@@ -14,19 +14,19 @@
 namespace Graze\ParallelProcess\Test\Unit;
 
 use Graze\ParallelProcess\Event\RunEvent;
-use Graze\ParallelProcess\Run;
+use Graze\ParallelProcess\ProcessRun;
 use Graze\ParallelProcess\RunInterface;
 use Graze\ParallelProcess\Test\TestCase;
 use Mockery;
 use Symfony\Component\Process\Process;
 
-class RunTest extends TestCase
+class ProcessRunTest extends TestCase
 {
     public function testRunImplementsRunInterface()
     {
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
-        $run = new Run($process);
+        $run = new ProcessRun($process);
         $this->assertInstanceOf(RunInterface::class, $run);
     }
 
@@ -35,7 +35,7 @@ class RunTest extends TestCase
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
 
-        $run = new Run($process);
+        $run = new ProcessRun($process);
 
         $this->assertSame($process, $run->getProcess());
 
@@ -59,7 +59,7 @@ class RunTest extends TestCase
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
 
-        $run = new Run($process);
+        $run = new ProcessRun($process);
 
         $this->assertTrue($run->isUpdateOnPoll());
         $this->assertSame($run, $run->setUpdateOnPoll(false));
@@ -71,7 +71,7 @@ class RunTest extends TestCase
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
 
-        $run = new Run($process);
+        $run = new ProcessRun($process);
 
         $this->assertTrue($run->isUpdateOnProcessOutput());
         $this->assertSame($run, $run->setUpdateOnProcessOutput(false));
@@ -83,16 +83,16 @@ class RunTest extends TestCase
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
 
-        $run = new Run($process);
+        $run = new ProcessRun($process);
 
         $process->shouldReceive('isRunning')
-                ->andReturn(false, true);
+                ->andReturn(true); // check
         $process->shouldReceive('start');
 
-        $run->start();
-
         $process->shouldReceive('isStarted')
-                ->andReturn(true);
+                ->andReturn(false, true); // start, check
+
+        $run->start();
 
         $this->assertTrue($run->isRunning());
         $this->assertTrue($run->hasStarted());
@@ -104,18 +104,15 @@ class RunTest extends TestCase
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
 
-        $run = new Run($process);
+        $run = new ProcessRun($process);
 
-        $process->shouldReceive('isRunning')
-                ->andReturn(false, true, false);
-
+        $process->shouldReceive('isRunning')->andReturn(true, false);
         $process->shouldReceive('start');
+        $process->shouldReceive('isStarted')->andReturn(false, true);
+
         $run->start();
 
-        $process->shouldReceive('isStarted')
-                ->andReturn(true);
-        $process->shouldReceive('isSuccessful')
-                ->andReturn(true);
+        $process->shouldReceive('isSuccessful')->andReturn(true);
 
         $this->assertTrue($run->poll());
         $this->assertFalse($run->poll());
@@ -130,7 +127,7 @@ class RunTest extends TestCase
 
         $hit = false;
 
-        $run = new Run($process);
+        $run = new ProcessRun($process);
         $run->addListener(
             RunEvent::STARTED,
             function (RunEvent $event) use (&$run, &$hit) {
@@ -140,7 +137,7 @@ class RunTest extends TestCase
         );
 
         $process->shouldReceive('start')->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, true);
         $process->shouldReceive('isRunning')->andReturn(false);
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
@@ -155,7 +152,7 @@ class RunTest extends TestCase
 
         $hit = false;
 
-        $run = new Run($process);
+        $run = new ProcessRun($process);
         $run->addListener(
             RunEvent::COMPLETED,
             function (RunEvent $event) use (&$run, &$hit) {
@@ -165,7 +162,7 @@ class RunTest extends TestCase
         );
 
         $process->shouldReceive('start')->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, true);
         $process->shouldReceive('isRunning')->andReturn(false);
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
@@ -180,7 +177,7 @@ class RunTest extends TestCase
 
         $hit = false;
 
-        $run = new Run($process);
+        $run = new ProcessRun($process);
         $run->addListener(
             RunEvent::FAILED,
             function (RunEvent $event) use (&$run, &$hit) {
@@ -190,7 +187,7 @@ class RunTest extends TestCase
         );
 
         $process->shouldReceive('start')->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, true);
         $process->shouldReceive('isRunning')->andReturn(false);
         $process->shouldReceive('isSuccessful')->once()->andReturn(false);
 
@@ -205,7 +202,7 @@ class RunTest extends TestCase
 
         $hit = false;
 
-        $run = new Run($process);
+        $run = new ProcessRun($process);
         $run->addListener(
             RunEvent::UPDATED,
             function (RunEvent $event) use (&$run, &$hit) {
@@ -215,8 +212,8 @@ class RunTest extends TestCase
         );
 
         $process->shouldReceive('start')->once();
-        $process->shouldReceive('isStarted')->andReturn(true);
-        $process->shouldReceive('isRunning')->andReturn(false, true, false);
+        $process->shouldReceive('isStarted')->andReturn(false, true);
+        $process->shouldReceive('isRunning')->andReturn(true, false);
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
         $run->start();
@@ -229,9 +226,9 @@ class RunTest extends TestCase
         $process = Mockery::mock(Process::class);
         $process->shouldReceive('stop');
 
-        $run = new Run($process);
+        $run = new ProcessRun($process);
 
-        $process->shouldReceive('isRunning')
+        $process->shouldReceive('isStarted')
                 ->andReturn(true);
 
         $this->assertSame($run, $run->start());
@@ -254,7 +251,7 @@ class RunTest extends TestCase
                 )
                 ->once();
 
-        $run = new Run($process);
+        $run = new ProcessRun($process);
         $run->addListener(
             RunEvent::UPDATED,
             function (RunEvent $event) use (&$run, &$hits) {
@@ -266,7 +263,7 @@ class RunTest extends TestCase
             }
         );
 
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, true);
         $process->shouldReceive('isRunning')->andReturn(false);
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
@@ -292,7 +289,7 @@ class RunTest extends TestCase
                 ->once();
 
         $hits = 0;
-        $run = new Run($process);
+        $run = new ProcessRun($process);
         $run->addListener(
             RunEvent::UPDATED,
             function (RunEvent $event) use (&$run, &$hits) {
@@ -304,7 +301,7 @@ class RunTest extends TestCase
             }
         );
 
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, true);
         $process->shouldReceive('isRunning')->andReturn(false);
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
@@ -320,7 +317,7 @@ class RunTest extends TestCase
 
         $process->shouldReceive('start')->once();
 
-        $run = new Run($process);
+        $run = new ProcessRun($process);
         $run->addListener(
             RunEvent::UPDATED,
             function () {
@@ -329,8 +326,8 @@ class RunTest extends TestCase
         );
         $run->setUpdateOnPoll(false);
 
-        $process->shouldReceive('isStarted')->andReturn(true);
-        $process->shouldReceive('isRunning')->andReturn(false, true, false);
+        $process->shouldReceive('isStarted')->andReturn(false, true);
+        $process->shouldReceive('isRunning')->andReturn(true, false);
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
         $run->start();
@@ -355,7 +352,7 @@ class RunTest extends TestCase
                 )
                 ->once();
 
-        $run = new Run($process);
+        $run = new ProcessRun($process);
         $run->addListener(
             RunEvent::UPDATED,
             function () {
@@ -364,11 +361,22 @@ class RunTest extends TestCase
         );
         $run->setUpdateOnProcessOutput(false);
 
-        $process->shouldReceive('isStarted')->andReturn(true);
+        $process->shouldReceive('isStarted')->andReturn(false, true);
         $process->shouldReceive('isRunning')->andReturn(false);
         $process->shouldReceive('isSuccessful')->once()->andReturn(true);
 
         $run->start();
         $this->assertFalse($run->poll());
+    }
+
+    public function testGetPriority()
+    {
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('stop');
+        $run = new ProcessRun($process, [], 1.5);
+
+        $this->assertEquals(1.5, $run->getPriority());
+        $this->assertSame($run, $run->setPriority(2));
+        $this->assertEquals(2, $run->getPriority());
     }
 }
