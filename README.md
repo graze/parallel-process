@@ -28,26 +28,65 @@ $ composer require graze/console-diff-renderer
 ## Usage
 
 ``` php
-$failure = function (Process $process, $duration) {
-    throw new ProcessFailureException($process);
-}
-
 $pool = new Pool();
-$pool->setOnFailure($failure);
 $pool->add(new Process('sleep 100'));
 $pool->add(new Process('sleep 100'));
 $pool->add(new Process('sleep 100'));
 $pool->add(new Process('sleep 100'));
-$pool->add(new Process('sleep 100'));
+$pool->add(new ProcessRun(new Process('sleep 100')));
 $pool->run(); // blocking that will run till it finishes
 ```
 
-### Table
+A Pool will run all child processes at the same time.
+
+### Priority Pool
+
+A Priority pool will sort the runs to allow a prioritised list to be started. You can also limit the number of 
+processes to run at a time.
+
+```php
+$pool = new PriorityPool();
+$pool->add(new Process('sleep 100'), [], 1);
+$pool->add(new Process('sleep 100'), [], 0.1);
+$pool->add(new Process('sleep 100'), [], 5);
+$pool->add(new Process('sleep 100'), [], 10);
+$pool->add(new CallbackRun(
+    function () {
+        return 'yarp';
+    },
+    [],
+    2
+);
+$pool->run(); // blocking that will run till it finishes
+```
+
+### Recursive Pools
+
+You can add a Pool as a child to a parent pool. A Pool will act just like a standard run and hide the child runs.
+
+If the parent is a PriorityPool, it will control all the child runs so that priorities and the max simultaneous
+configuration options still apply.
+
+```php
+$pool = new Pool();
+$pool->add(new Process('sleep 100'));
+$pool2 = new Pool();
+$pool2->add(new Process('sleep 100'));
+$pool->add($pool2);
+$pool->run(); // blocking that will run till it finishes
+```
+
+### Display
+
+You can out runs in a few different ways to the command line. These require the use of the package: 
+[`graze/console-diff-renderer`](https://github.com/graze/console-diff-renderer).
+
+#### Table
 
 Visual output of the parallel processes
 
 ```php
-$pool = new \Graze\ParallelProcess\Pool();
+$pool = new \Graze\ParallelProcess\PriorityPool();
 for ($i = 0; $i < 5; $i++) {
     $time = $i + 5;
     $pool->add(new Process(sprintf('for i in `seq 1 %d` ; do date ; sleep 1 ; done', $time)), ['sleep' => $time]);
@@ -58,12 +97,12 @@ $table->run();
 
 [![asciicast](https://asciinema.org/a/55r0rf9zin49s751j3a8zbdw1.png)](https://asciinema.org/a/55r0rf9zin49s751j3a8zbdw1)
 
-### Lines
+#### Lines
 
 Write the output of each process to the screen
 
 ```php
-$pool = new \Graze\ParallelProcess\Pool();
+$pool = new \Graze\ParallelProcess\PriorityPool();
 $pool->setMaxSimultaneous(3);
 for ($i = 0; $i < 5; $i++) {
     $time = $i + 5;
