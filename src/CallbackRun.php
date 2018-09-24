@@ -15,13 +15,15 @@ namespace Graze\ParallelProcess;
 
 use Exception;
 use Graze\ParallelProcess\Event\EventDispatcherTrait;
+use Graze\ParallelProcess\Event\PriorityChangedEvent;
 use Graze\ParallelProcess\Event\RunEvent;
 use Throwable;
 
-class CallbackRun implements RunInterface, OutputterInterface
+class CallbackRun implements RunInterface, OutputterInterface, PrioritisedInterface
 {
     use EventDispatcherTrait;
     use RunningStateTrait;
+    use PrioritisedTrait;
 
     /** @var callable */
     private $callback;
@@ -33,8 +35,6 @@ class CallbackRun implements RunInterface, OutputterInterface
     private $exception = null;
     /** @var string */
     private $last;
-    /** @var float */
-    private $priority;
 
     /**
      * Run constructor.
@@ -52,17 +52,6 @@ class CallbackRun implements RunInterface, OutputterInterface
     }
 
     /**
-     * @param float $priority
-     *
-     * @return CallbackRun
-     */
-    public function setPriority($priority)
-    {
-        $this->priority = $priority;
-        return $this;
-    }
-
-    /**
      * @return string[]
      */
     protected function getEventNames()
@@ -73,6 +62,7 @@ class CallbackRun implements RunInterface, OutputterInterface
             RunEvent::SUCCESSFUL,
             RunEvent::FAILED,
             RunEvent::UPDATED,
+            PriorityChangedEvent::CHANGED,
         ];
     }
 
@@ -215,13 +205,5 @@ class CallbackRun implements RunInterface, OutputterInterface
     public function getLastMessageType()
     {
         return '';
-    }
-
-    /**
-     * @return float The priority for this run, where the larger the number the higher the priority
-     */
-    public function getPriority()
-    {
-        return $this->priority;
     }
 }

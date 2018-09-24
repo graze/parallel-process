@@ -150,16 +150,14 @@ class Table
      */
     private function getSummary()
     {
-        if (!$this->pool instanceof RunInterface) {
-            return '';
-        }
-
-        if ($this->pool->hasStarted()) {
-            if ($this->pool->isRunning()) {
+        $running = count($this->pool->getRunning());
+        $finished = count($this->pool->getFinished());
+        if ($running > 0 || $finished > 0) {
+            if ($running > 0) {
                 return sprintf(
                     '<comment>Total</comment>: %2d, <comment>Running</comment>: %2d, <comment>Waiting</comment>: %2d',
                     $this->pool->count(),
-                    count($this->pool->getRunning()),
+                    $running,
                     count($this->pool->getWaiting())
                 );
             } else {

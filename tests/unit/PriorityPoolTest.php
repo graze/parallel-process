@@ -17,6 +17,7 @@ namespace Graze\ParallelProcess\Test\Unit;
 use Graze\DataStructure\Collection\CollectionInterface;
 use Graze\ParallelProcess\CallbackRun;
 use Graze\ParallelProcess\Event\PoolRunEvent;
+use Graze\ParallelProcess\PoolInterface;
 use Graze\ParallelProcess\PriorityPool;
 use Graze\ParallelProcess\ProcessRun;
 use Graze\ParallelProcess\RunInterface;
@@ -169,6 +170,46 @@ class PriorityPoolTest extends TestCase
         $this->assertTrue($hit);
     }
 
+    public function testAddingChildPoolWillAddAllTheChildrenIntoThisPoolAndCreateAListener()
+    {
+        $run = new CallbackRun(function () {
+            return true;
+        });
+        $pool = Mockery::mock(PoolInterface::class, RunInterface::class);
+        $pool->allows([
+            'isRunning'   => false,
+            'hasStarted'  => false,
+            'getPriority' => 1,
+            'getAll'      => [$run],
+        ]);
+
+        $callback = null;
+        $pool->allows()
+             ->addListener(
+                 PoolRunEvent::POOL_RUN_ADDED,
+                 Mockery::on(function (callable $func) use (&$callback) {
+                     $callback = $func;
+                     return true;
+                 })
+             )
+             ->once();
+
+        $priorityPool = new PriorityPool();
+        $priorityPool->add($pool);
+
+        $this->assertCount(1, $priorityPool->getAll());
+        $this->assertEquals([$run], $priorityPool->getAll());
+
+        $run2 = new CallbackRun(function () {
+            return true;
+        });
+
+        call_user_func($callback, new PoolRunEvent($pool, $run2));
+
+        $this->assertCount(2, $priorityPool->getAll());
+        $this->assertEquals([$run, $run2], $priorityPool->getAll());
+    }
+
     /**
      * @expectedException \Graze\ParallelProcess\Exceptions\NotRunningException
      */
@@ -291,5 +332,57 @@ class PriorityPoolTest extends TestCase
         $this->assertTrue($priorityPool->isSuccessful());
 
         $priorityPool->poll();
+    }
+
+    public function testModifyingThePriorityWillChangeWhichRunStartsFirst()
+    {
+        $pool = new PriorityPool();
+        $pool->setMaxSimultaneous(1);
+
+        $run = new CallbackRun(
+            function () {
+                return true;
+            },
+            [],
+            1.1
+        );
+        $run2 = new CallbackRun(
+            function () {
+                return true;
+            },
+            [],
+            1.2
+        );
+
+        $pool->add($run);
+        $pool->add($run2);
+
+        $run->setPriority(1.3);
+
+        $pool->start();
+
+        $this->assertTrue($run->hasStarted());
+        $this->assertFalse($run2->hasStarted());
+
+        $run3 = new CallbackRun(
+            function () {
+                return true;
+            },
+            [],
+            1.05
+        );
+        $pool->add($run3);
+
+        $run->setPriority(1.00);
+
+        $this->assertTrue($run->hasStarted());
+        $this->assertFalse($run2->hasStarted());
+        $this->assertFalse($run3->hasStarted());
+
+        $pool->poll();
+
+        $this->assertTrue($run->hasStarted());
+        $this->assertTrue($run2->hasStarted());
+        $this->assertFalse($run3->hasStarted());
     }
 }

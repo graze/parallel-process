@@ -177,6 +177,32 @@ class PoolTest extends TestCase
         $this->assertTrue($hit);
     }
 
+    public function testAddingACompletedRunWillAddItToTheFinishedListAndStartThePool()
+    {
+        $run = new CallbackRun(function () {
+            return true;
+        });
+        $run->start();
+
+        $pool = new Pool();
+        $hit = false;
+        $pool->addListener(
+            RunEvent::STARTED,
+            function (RunEvent $event) use (&$hit, $pool) {
+                $hit = true;
+                $this->assertSame($pool, $event->getRun());
+            }
+        );
+
+        $this->assertFalse($hit);
+        $pool->add($run);
+        $this->assertTrue($hit);
+
+        $this->assertCount(1, $pool->getFinished());
+        $this->assertFalse($pool->isRunning());
+        $this->assertTrue($pool->hasStarted());
+    }
+
     public function testSuccessfulRun()
     {
         $run = new CallbackRun(function () {
@@ -351,5 +377,13 @@ class PoolTest extends TestCase
 
         $this->assertGreaterThan(0, $pool->getDuration());
         $pool->run(0);
+    }
+
+    public function testPriority()
+    {
+        $pool = new Pool();
+        $this->assertEquals(1, $pool->getPriority());
+        $this->assertSame($pool, $pool->setPriority(2));
+        $this->assertEquals(2, $pool->getPriority());
     }
 }

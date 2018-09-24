@@ -372,7 +372,7 @@ class ProcessRunTest extends TestCase
     public function testGetPriority()
     {
         $process = Mockery::mock(Process::class);
-        $process->shouldReceive('stop');
+        $process->allows(['stop' => null, 'isStarted' => false]);
         $run = new ProcessRun($process, [], 1.5);
 
         $this->assertEquals(1.5, $run->getPriority());

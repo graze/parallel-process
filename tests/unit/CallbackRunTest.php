@@ -14,6 +14,7 @@
 namespace Graze\ParallelProcess\Test\Unit;
 
 use Graze\ParallelProcess\CallbackRun;
+use Graze\ParallelProcess\Event\PriorityChangedEvent;
 use Graze\ParallelProcess\Event\RunEvent;
 use Graze\ParallelProcess\OutputterInterface;
 use Graze\ParallelProcess\RunInterface;
@@ -121,6 +122,30 @@ class CallbackRunTest extends TestCase
         $this->assertEquals([$exception], $run->getExceptions());
     }
 
+    /**
+     * @requires PHP 7.0
+     */
+    public function testOnThrowableFailure()
+    {
+        $hit = false;
+
+        $exception = new \TypeError();
+        $run = new CallbackRun(function () use ($exception) {
+            throw $exception;
+        });
+        $run->addListener(
+            RunEvent::FAILED,
+            function (RunEvent $event) use (&$run, &$hit) {
+                $this->assertSame($event->getRun(), $run);
+                $hit = true;
+            }
+        );
+
+        $run->start();
+        $this->assertFalse($run->poll());
+        $this->assertEquals([$exception], $run->getExceptions());
+    }
+
     public function testOnProgress()
     {
         $hit = false;
@@ -159,5 +184,39 @@ class CallbackRunTest extends TestCase
 
         $run->start();
         $this->assertFalse($run->poll());
+    }
+
+    public function testPriorityAccessors()
+    {
+        $run = new CallbackRun(
+            function () {
+                return true;
+            },
+            ['tag'],
+            2.1
+        );
+
+        $hit = false;
+        $run->addListener(
+            PriorityChangedEvent::CHANGED,
+            function (PriorityChangedEvent $event) use (&$hit, $run) {
+                $hit = true;
+                $this->assertSame($run, $event->getItem());
+            }
+        );
+        $this->assertEquals(2.1, $run->getPriority());
+        $this->assertFalse($hit);
+        $this->assertSame($run, $run->setPriority(2.2));
+        $this->assertTrue($hit);
+        $this->assertEquals(2.2, $run->getPriority());
+
+        $run->start();
+
+        $hit = false;
+        $this->assertFalse($hit);
+        // don't trigger event if we have already started
+        $this->assertSame($run, $run->setPriority(2.3));
+        $this->assertFalse($hit);
+        $this->assertEquals(2.3, $run->getPriority());
     }
 }
