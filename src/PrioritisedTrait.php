@@ -20,7 +20,7 @@ trait PrioritisedTrait
         $oldPriority = $this->priority;
         $this->priority = $priority;
         if (!($this instanceof RunInterface && $this->hasStarted())
-            && $this instanceof DispatcherInterface
+            && method_exists($this, 'dispatch')
             && $this instanceof PrioritisedInterface) {
             $this->dispatch(PriorityChangedEvent::CHANGED, new PriorityChangedEvent($this, $priority, $oldPriority));
         }

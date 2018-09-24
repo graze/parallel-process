@@ -13,6 +13,7 @@
 
 namespace Graze\ParallelProcess;
 
+use Graze\ParallelProcess\Event\DispatcherInterface;
 use Graze\ParallelProcess\Event\PoolRunEvent;
 use Graze\ParallelProcess\Event\PriorityChangedEvent;
 use Graze\ParallelProcess\Exceptions\NotRunningException;
@@ -106,7 +107,7 @@ class PriorityPool extends Pool
             }
         }
 
-        if ($item instanceof PrioritisedInterface) {
+        if ($item instanceof PrioritisedInterface && $item instanceof DispatcherInterface) {
             $item->addListener(PriorityChangedEvent::CHANGED, [$this, 'onPriorityChanged']);
         }
 
