@@ -13,9 +13,11 @@
 
 namespace Graze\ParallelProcess\Test\Unit\Display;
 
+use Graze\ParallelProcess\Display\Table;
+use Graze\ParallelProcess\Event\PoolRunEvent;
+use Graze\ParallelProcess\PoolInterface;
 use Graze\ParallelProcess\PriorityPool;
 use Graze\ParallelProcess\ProcessRun;
-use Graze\ParallelProcess\Display\Table;
 use Graze\ParallelProcess\Test\BufferDiffOutput;
 use Graze\ParallelProcess\Test\TestCase;
 use Mockery;

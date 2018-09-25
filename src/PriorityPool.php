@@ -13,7 +13,9 @@
 
 namespace Graze\ParallelProcess;
 
+use Graze\ParallelProcess\Event\DispatcherInterface;
 use Graze\ParallelProcess\Event\PoolRunEvent;
+use Graze\ParallelProcess\Event\PriorityChangedEvent;
 use Graze\ParallelProcess\Exceptions\NotRunningException;
 use SplPriorityQueue;
 use Symfony\Component\Process\Process;
@@ -100,12 +102,31 @@ class PriorityPool extends Pool
 
         if ($item instanceof RunInterface && !$item->hasStarted()) {
             $this->waitingQueue->insert($item, $item->getPriority());
-            if ($this->isRunning() || $this->runInstantly) {
+            if ($this->runInstantly) {
                 $this->startNext();
             }
         }
 
+        if ($item instanceof PrioritisedInterface && $item instanceof DispatcherInterface) {
+            $item->addListener(PriorityChangedEvent::CHANGED, [$this, 'onPriorityChanged']);
+        }
+
         return $this;
+    }
+
+    /**
+     * @param PriorityChangedEvent $event
+     */
+    public function onPriorityChanged(PriorityChangedEvent $event)
+    {
+        $index = array_search($event->getItem(), $this->waiting, true);
+        if ($index !== false) {
+            // we are unable to delete an item from a SplPriorityQueue, so we delete it and start again here
+            $this->waitingQueue = new SplPriorityQueue();
+            foreach ($this->waiting as $item) {
+                $this->waitingQueue->insert($item, $item->getPriority());
+            }
+        }
     }
 
     /**

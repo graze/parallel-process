@@ -17,6 +17,7 @@ use Exception;
 use Graze\DataStructure\Collection\Collection;
 use Graze\ParallelProcess\Event\EventDispatcherTrait;
 use Graze\ParallelProcess\Event\PoolRunEvent;
+use Graze\ParallelProcess\Event\PriorityChangedEvent;
 use Graze\ParallelProcess\Event\RunEvent;
 use InvalidArgumentException;
 use Symfony\Component\Process\Process;
@@ -28,12 +29,20 @@ use Throwable;
  * A Pool is a arbitrary collection of runs that can be used to group runs together when displaying with a
  * Table
  *
+ * A Pool can transition from `not_running` back to `running` again. But it cannot transition back to `not_started`.
+ * This means that multiple `COMPLETED` and `STARTED` events can be sent out for a single pool.
+ *
+ * ```
+ * not_started -> running <-> not_running
+ * ```
+ *
  * @package Graze\ParallelProcess
  */
-class Pool extends Collection implements RunInterface, PoolInterface
+class Pool extends Collection implements RunInterface, PoolInterface, PrioritisedInterface
 {
     use EventDispatcherTrait;
     use RunningStateTrait;
+    use PrioritisedTrait;
 
     /** @var RunInterface[] */
     protected $items = [];
@@ -47,8 +56,6 @@ class Pool extends Collection implements RunInterface, PoolInterface
     private $exceptions = [];
     /** @var array */
     private $tags;
-    /** @var float */
-    private $priority;
 
     /**
      * RunCollection constructor.
@@ -89,7 +96,7 @@ class Pool extends Collection implements RunInterface, PoolInterface
             $this->running[] = $item;
         } elseif ($item->hasStarted()) {
             $status = 'finished';
-            $this->finished[] = $item;
+            $this->complete[] = $item;
         } else {
             $this->waiting[] = $item;
         }
@@ -100,11 +107,13 @@ class Pool extends Collection implements RunInterface, PoolInterface
 
         $this->dispatch(PoolRunEvent::POOL_RUN_ADDED, new PoolRunEvent($this, $item));
 
-        if ($status == 'running' || $status == 'finished') {
-            if ($this->state == static::STATE_NOT_STARTED) {
-                $this->setStarted();
-                $this->dispatch(RunEvent::STARTED, new RunEvent($this));
-            }
+        if ($status != 'waiting' && $this->state != static::STATE_RUNNING) {
+            $this->setStarted();
+            $this->dispatch(RunEvent::STARTED, new RunEvent($this));
+        }
+        if ($status == 'finished' && $this->state != static::STATE_NOT_RUNNING) {
+            $this->setFinished();
+            $this->dispatch(RunEvent::COMPLETED, new RunEvent($this));
         }
 
         return $this;
@@ -260,25 +269,6 @@ class Pool extends Collection implements RunInterface, PoolInterface
     }
 
     /**
-     * @return float
-     */
-    public function getPriority()
-    {
-        return $this->priority;
-    }
-
-    /**
-     * @param float $priority
-     *
-     * @return $this
-     */
-    public function setPriority($priority)
-    {
-        $this->priority = $priority;
-        return $this;
-    }
-
-    /**
      * @return string[]
      */
     protected function getEventNames()
@@ -290,6 +280,7 @@ class Pool extends Collection implements RunInterface, PoolInterface
             RunEvent::FAILED,
             RunEvent::UPDATED,
             PoolRunEvent::POOL_RUN_ADDED,
+            PriorityChangedEvent::CHANGED,
         ];
     }
 

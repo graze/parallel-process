@@ -104,7 +104,11 @@ class PoolLogger
     public function onRunSuccessful(RunEvent $event)
     {
         $this->logger->debug(
-            sprintf('run [%s:%s]: successfully finished', get_class($event->getRun()), spl_object_hash($event->getRun())),
+            sprintf(
+                'run [%s:%s]: successfully finished',
+                get_class($event->getRun()),
+                spl_object_hash($event->getRun())
+            ),
             $this->getTags($event->getRun())
         );
     }
@@ -137,7 +141,11 @@ class PoolLogger
     public function onRunCompleted(RunEvent $event)
     {
         $this->logger->debug(
-            sprintf('run [%s:%s]: has finished running', get_class($event->getRun()), spl_object_hash($event->getRun())),
+            sprintf(
+                'run [%s:%s]: has finished running',
+                get_class($event->getRun()),
+                spl_object_hash($event->getRun())
+            ),
             $this->getTags($event->getRun())
         );
     }
@@ -151,10 +159,8 @@ class PoolLogger
     {
         if ($item instanceof PoolInterface) {
             return $this->getPoolTags($item);
-        } elseif ($item instanceof RunInterface) {
-            return $this->getRunTags($item);
         }
-        return [];
+        return $this->getRunTags($item);
     }
 
     /**

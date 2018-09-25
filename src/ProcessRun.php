@@ -15,15 +15,17 @@ namespace Graze\ParallelProcess;
 
 use Exception;
 use Graze\ParallelProcess\Event\EventDispatcherTrait;
+use Graze\ParallelProcess\Event\PriorityChangedEvent;
 use Graze\ParallelProcess\Event\RunEvent;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
 use Throwable;
 
-class ProcessRun implements RunInterface, OutputterInterface
+class ProcessRun implements RunInterface, OutputterInterface, PrioritisedInterface
 {
     use EventDispatcherTrait;
     use RunningStateTrait;
+    use PrioritisedTrait;
 
     /** @var Process */
     private $process;
@@ -41,8 +43,6 @@ class ProcessRun implements RunInterface, OutputterInterface
     private $updateOnProcessOutput = true;
     /** @var string[] */
     private $tags;
-    /** @var float */
-    private $priority;
 
     /**
      * Run constructor.
@@ -59,17 +59,6 @@ class ProcessRun implements RunInterface, OutputterInterface
     }
 
     /**
-     * @param float $priority
-     *
-     * @return ProcessRun
-     */
-    public function setPriority($priority)
-    {
-        $this->priority = $priority;
-        return $this;
-    }
-
-    /**
      * @return string[]
      */
     protected function getEventNames()
@@ -80,6 +69,7 @@ class ProcessRun implements RunInterface, OutputterInterface
             RunEvent::FAILED,
             RunEvent::UPDATED,
             RunEvent::SUCCESSFUL,
+            PriorityChangedEvent::CHANGED,
         ];
     }
 
@@ -260,13 +250,5 @@ class ProcessRun implements RunInterface, OutputterInterface
             return [new ProcessFailedException($this->process)];
         }
         return [];
-    }
-
-    /**
-     * @return float The priority for this run, where the larger the number the higher the priority
-     */
-    public function getPriority()
-    {
-        return $this->priority;
     }
 }
