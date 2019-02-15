@@ -36,7 +36,7 @@ trait EventDispatcherTrait
     /**
      * @return string[]
      */
-    protected abstract function getEventNames();
+    abstract protected function getEventNames();
 
     /**
      * @param string   $name
