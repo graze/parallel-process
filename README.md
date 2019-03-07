@@ -91,7 +91,7 @@ for ($i = 0; $i < 5; $i++) {
     $time = $i + 5;
     $pool->add(new Process(sprintf('for i in `seq 1 %d` ; do date ; sleep 1 ; done', $time)), ['sleep' => $time]);
 }
-$table = new \Graze\ParallelProcess\Table($output, $pool);
+$table = new \Graze\ParallelProcess\Display\Table($output, $pool);
 $table->run();
 ```
 
@@ -108,7 +108,7 @@ for ($i = 0; $i < 5; $i++) {
     $time = $i + 5;
     $pool->add(new Process(sprintf('for i in `seq 1 %d` ; do date ; sleep 1 ; done', $time)), ['sleep' . $time]);
 }
-$lines = new \Graze\ParallelProcess\Lines($output, $pool);
+$lines = new \Graze\ParallelProcess\Display\Lines($output, $pool);
 $lines->run();
 ```
 
