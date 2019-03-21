@@ -78,7 +78,7 @@ $pool->run(); // blocking that will run till it finishes
 
 ### Display
 
-You can out runs in a few different ways to the command line. These require the use of the package: 
+You can output runs in a few different ways to the command line. These require the use of the package:
 [`graze/console-diff-renderer`](https://github.com/graze/console-diff-renderer).
 
 #### Table
