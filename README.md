@@ -78,7 +78,7 @@ $pool->run(); // blocking that will run till it finishes
 
 ### Display
 
-You can out runs in a few different ways to the command line. These require the use of the package: 
+You can output runs in a few different ways to the command line. These require the use of the package:
 [`graze/console-diff-renderer`](https://github.com/graze/console-diff-renderer).
 
 #### Table
@@ -91,6 +91,7 @@ for ($i = 0; $i < 5; $i++) {
     $time = $i + 5;
     $pool->add(new Process(sprintf('for i in `seq 1 %d` ; do date ; sleep 1 ; done', $time)), ['sleep' => $time]);
 }
+$output = new \Symfony\Component\Console\Output\ConsoleOutput();
 $table = new \Graze\ParallelProcess\Display\Table($output, $pool);
 $table->run();
 ```
@@ -108,6 +109,7 @@ for ($i = 0; $i < 5; $i++) {
     $time = $i + 5;
     $pool->add(new Process(sprintf('for i in `seq 1 %d` ; do date ; sleep 1 ; done', $time)), ['sleep' . $time]);
 }
+$output = new \Symfony\Component\Console\Output\ConsoleOutput();
 $lines = new \Graze\ParallelProcess\Display\Lines($output, $pool);
 $lines->run();
 ```
