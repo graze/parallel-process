@@ -14,7 +14,7 @@
 namespace Graze\ParallelProcess\Test;
 
 use Graze\ParallelProcess\Event\EventDispatcherTrait;
-use Symfony\Component\EventDispatcher\Event;
+use Symfony\Contracts\EventDispatcher\Event;
 
 class EventDispatcherFake
 {
