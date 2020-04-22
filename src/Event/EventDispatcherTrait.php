@@ -60,7 +60,7 @@ trait EventDispatcherTrait
     protected function dispatch($name, Event $event)
     {
         $this->assertEventName($name);
-        $this->getEventDispatcher()->dispatch($name, $event);
+        $this->getEventDispatcher()->dispatch($event, $name);
         return $this;
     }
 
