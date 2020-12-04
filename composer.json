@@ -21,15 +21,15 @@
     }
   ],
   "require": {
-    "php": "^5.5 | ^7.0",
-    "symfony/process": "^2.8 | ^3.2 | ^4.0",
+    "php": "^5.5 | ^7.0 | ^8.0",
+    "symfony/process": "^2.8 | ^3.2 | ^4.0 | ^5.0",
     "graze/data-structure": "^2.0",
-    "symfony/event-dispatcher": "^2.8 | ^3.2 | ^4.0",
+    "symfony/event-dispatcher": "^2.8 | ^3.2 | ^4.0 | ^5.0",
     "psr/log": "^1.0"
   },
   "require-dev": {
     "mockery/mockery": "^1.0",
-    "phpunit/phpunit": "^5.7.21 | ^6 | ^7",
+    "phpunit/phpunit": ">5.7.21",
     "squizlabs/php_codesniffer": "^3.3.1",
     "graze/standards": "^2",
     "symfony/console": "^3.1 | ^4 | ^5",
