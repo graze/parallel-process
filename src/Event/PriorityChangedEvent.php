@@ -14,7 +14,11 @@
 namespace Graze\ParallelProcess\Event;
 
 use Graze\ParallelProcess\PrioritisedInterface;
-use Symfony\Component\EventDispatcher\Event;
+use Symfony\Contracts\EventDispatcher\Event;
+
+if (class_exists('Symfony\Component\EventDispatcher\Event')) {
+    class_alias('Symfony\Component\EventDispatcher\Event', 'Symfony\Contracts\EventDispatcher\Event');
+}
 
 class PriorityChangedEvent extends Event
 {
