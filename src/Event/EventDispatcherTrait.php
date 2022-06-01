@@ -13,7 +13,7 @@
 
 namespace Graze\ParallelProcess\Event;
 
-use Symfony\Component\EventDispatcher\Event;
+use Symfony\Contracts\EventDispatcher\Event;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
@@ -60,7 +60,7 @@ trait EventDispatcherTrait
     protected function dispatch($name, Event $event)
     {
         $this->assertEventName($name);
-        $this->getEventDispatcher()->dispatch($name, $event);
+        $this->getEventDispatcher()->dispatch($event, $name);
         return $this;
     }
 

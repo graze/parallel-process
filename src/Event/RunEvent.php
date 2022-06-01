@@ -14,7 +14,7 @@
 namespace Graze\ParallelProcess\Event;
 
 use Graze\ParallelProcess\RunInterface;
-use Symfony\Component\EventDispatcher\Event;
+use Symfony\Contracts\EventDispatcher\Event;
 
 class RunEvent extends Event
 {
