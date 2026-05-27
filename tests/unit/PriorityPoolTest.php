@@ -30,7 +30,7 @@ class PriorityPoolTest extends TestCase
     /** @var mixed */
     private $process;
 
-    public function setUp()
+    public function setUp(): void
     {
         parent::setUp();
 

@@ -22,7 +22,7 @@ class EventDispatcherTest extends TestCase
     /** @var EventDispatcherFake */
     private $dispatcher;
 
-    public function setUp()
+    public function setUp(): void
     {
         $this->dispatcher = new EventDispatcherFake();
     }

@@ -35,7 +35,7 @@ class LinesTest extends TestCase
     /** @var Lines */
     private $lines;
 
-    public function setUp()
+    public function setUp(): void
     {
         mb_internal_encoding("UTF-8");
         $this->bufferOutput = new BufferDiffOutput();
