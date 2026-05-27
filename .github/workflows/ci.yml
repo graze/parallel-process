@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php }}${{ matrix.prefer_lowest == '--prefer-lowest' && ' (lowest)' || '' }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4']
+        prefer_lowest: ['', '--prefer-lowest']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer packages
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ matrix.php }}-${{ matrix.prefer_lowest }}-${{ hashFiles('composer.json') }}
+          restore-keys: |
+            composer-${{ matrix.php }}-
+
+      - name: Pin Composer platform to the runtime PHP version
+        run: composer config platform.php "$(php -r 'echo PHP_VERSION;')"
+
+      - name: Install dependencies
+        run: composer update --no-interaction --prefer-dist ${{ matrix.prefer_lowest }}
+
+      - name: Lint (phpcs)
+        run: vendor/bin/phpcs -p --warning-severity=0 src/ tests/
+
+      - name: Unit tests
+        run: vendor/bin/phpunit

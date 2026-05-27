@@ -2,9 +2,7 @@
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/graze/parallel-process.svg?style=flat-square)](https://packagist.org/packages/graze/parallel-process)
 [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE.md)
-[![Build Status](https://img.shields.io/travis/graze/parallel-process/master.svg?style=flat-square)](https://travis-ci.org/graze/parallel-process)
-[![Coverage Status](https://img.shields.io/scrutinizer/coverage/g/graze/parallel-process.svg?style=flat-square)](https://scrutinizer-ci.com/g/graze/parallel-process/code-structure)
-[![Quality Score](https://img.shields.io/scrutinizer/g/graze/parallel-process.svg?style=flat-square)](https://scrutinizer-ci.com/g/graze/parallel-process)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/graze/parallel-process/ci.yml?branch=master&style=flat-square)](https://github.com/graze/parallel-process/actions/workflows/ci.yml)
 [![Total Downloads](https://img.shields.io/packagist/dt/graze/parallel-process.svg?style=flat-square)](https://packagist.org/packages/graze/parallel-process)
 
 Run multiple `Symfony\Process`'s at the same time.
