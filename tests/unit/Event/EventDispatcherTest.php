@@ -15,14 +15,14 @@ namespace Graze\ParallelProcess\Test\Unit\Event;
 
 use Graze\ParallelProcess\Test\EventDispatcherFake;
 use Graze\ParallelProcess\Test\TestCase;
-use Symfony\Component\EventDispatcher\Event;
+use Symfony\Contracts\EventDispatcher\Event;
 
 class EventDispatcherTest extends TestCase
 {
     /** @var EventDispatcherFake */
     private $dispatcher;
 
-    public function setUp()
+    public function setUp(): void
     {
         $this->dispatcher = new EventDispatcherFake();
     }

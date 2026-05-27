@@ -176,7 +176,7 @@ class CallbackRunTest extends TestCase
             RunEvent::UPDATED,
             function (RunEvent $event) use (&$run, &$hits) {
                 $this->assertSame($event->getRun(), $run);
-                $this->assertInternalType('float', $run->getDuration());
+                $this->assertIsFloat($run->getDuration());
                 $this->assertContains($run->getLastMessage(), ['line 1', 'line 2']);
                 $hits++;
             }

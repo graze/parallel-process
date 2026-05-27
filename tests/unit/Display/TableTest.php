@@ -35,7 +35,7 @@ class TableTest extends TestCase
     /** @var Table */
     private $table;
 
-    public function setUp()
+    public function setUp(): void
     {
         mb_internal_encoding("UTF-8");
         $this->bufferOutput = new BufferDiffOutput();

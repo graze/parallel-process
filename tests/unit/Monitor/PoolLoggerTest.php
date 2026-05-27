@@ -27,7 +27,7 @@ class PoolLoggerTest extends TestCase
     /** @var PoolLogger */
     private $monitor;
 
-    public function setUp()
+    public function setUp(): void
     {
         $this->logger = new BufferedLogger();
         $this->monitor = new PoolLogger($this->logger);
