@@ -1,7 +1,7 @@
 SHELL = /bin/sh
 
 DOCKER = $(shell which docker)
-PHP_VER := 7.2
+PHP_VER := 7.4
 IMAGE := graze/php-alpine:${PHP_VER}-test
 VOLUME := /srv
 DOCKER_RUN_BASE := ${DOCKER} run --rm -t -v $$(pwd):${VOLUME} -w ${VOLUME}
@@ -41,10 +41,10 @@ test: ## Run the unit and integration testsuites.
 test: lint test-unit
 
 lint: ## Run phpcs against the code.
-	${DOCKER_RUN} vendor/bin/phpcs -p --warning-severity=0 src/ tests/
+	${DOCKER_RUN} vendor/bin/phpcs --standard=./phpcs.xml.dist -p --warning-severity=0 src/ tests/
 
 lint-fix: ## Run phpcsf and fix possible lint errors.
-	${DOCKER_RUN} vendor/bin/phpcbf -p src/ tests/
+	${DOCKER_RUN} vendor/bin/phpcbf --standard=./phpcs.xml.dist -p src/ tests/
 
 test-unit: ## Run the unit testsuite.
 	${DOCKER_RUN} vendor/bin/phpunit --testsuite unit
@@ -58,10 +58,13 @@ test-matrix-lowest: ## Test all version, with the lowest version
 	${MAKE} build-update
 
 test-matrix: ## Run the unit tests against multiple targets.
-	${MAKE} PHP_VER="5.6" build-update test
-	${MAKE} PHP_VER="7.0" build-update test
-	${MAKE} PHP_VER="7.1" build-update test
-	${MAKE} PHP_VER="7.2" build-update test
+	${MAKE} PHP_VER="7.4" build-update test
+	${MAKE} PHP_VER="8.0" build-update test
+	${MAKE} PHP_VER="8.1" build-update test
+	${MAKE} PHP_VER="8.2" build-update test
+	${MAKE} PHP_VER="8.3" build-update test
+	${MAKE} PHP_VER="8.4" build-update test
+	${MAKE} PHP_VER="8.5" build-update test
 
 test-coverage: ## Run all tests and output coverage to the console.
 	${DOCKER_RUN} phpdbg7 -qrr vendor/bin/phpunit --coverage-text
