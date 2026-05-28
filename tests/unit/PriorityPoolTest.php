@@ -82,11 +82,9 @@ class PriorityPoolTest extends TestCase
         $this->assertEquals(2, $priorityPool->count());
     }
 
-    /**
-     * @expectedException \InvalidArgumentException
-     */
     public function testAddingNonRunInterfaceWillThrowException()
     {
+        $this->expectException(\InvalidArgumentException::class);
         $nope = Mockery::mock();
         $priorityPool = new PriorityPool();
         $priorityPool->add($nope);
@@ -210,11 +208,9 @@ class PriorityPoolTest extends TestCase
         $this->assertEquals([$run, $run2], $priorityPool->getAll());
     }
 
-    /**
-     * @expectedException \Graze\ParallelProcess\Exceptions\NotRunningException
-     */
     public function testPriorityPoolUnableToAddRunningProcessWhenPoolHasNotStarted()
     {
+        $this->expectException(\Graze\ParallelProcess\Exceptions\NotRunningException::class);
         $run = Mockery::mock(RunInterface::class);
         $run->shouldReceive('isRunning')
             ->andReturn(true);

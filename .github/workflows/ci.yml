@@ -14,12 +14,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ['7.4']
-        prefer_lowest: ['', '--prefer-lowest']
+        php: ['7.4', '8.0', '8.1', '8.2', '8.3', '8.4', '8.5']
+        prefer_lowest: ['']
+        # --prefer-lowest only on PHP 7.4: the floor of every dependency
+        # lives at 7.4 (mockery 1.6, phpunit 9.6, console-diff-renderer 1.0),
+        # so a "lowest" run on PHP 8.x would install deps that don't actually
+        # support PHP 8 at runtime.
+        include:
+          - php: '7.4'
+            prefer_lowest: '--prefer-lowest'
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -47,7 +54,8 @@ jobs:
         run: composer update --no-interaction --prefer-dist ${{ matrix.prefer_lowest }}
 
       - name: Lint (phpcs)
-        run: vendor/bin/phpcs -p --warning-severity=0 src/ tests/
+        if: matrix.prefer_lowest == ''
+        run: vendor/bin/phpcs --standard=./phpcs.xml.dist -p --warning-severity=0 src/ tests/
 
       - name: Unit tests
         run: vendor/bin/phpunit
