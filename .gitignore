@@ -2,3 +2,4 @@
 /tests/report/
 .idea
 .DS_Store
+.phpunit.result.cache

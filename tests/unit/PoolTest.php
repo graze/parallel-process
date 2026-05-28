@@ -87,11 +87,9 @@ class PoolTest extends TestCase
         $this->assertEquals(2, $pool->count());
     }
 
-    /**
-     * @expectedException \InvalidArgumentException
-     */
     public function testAddingNonRunInterfaceWillThrowException()
     {
+        $this->expectException(\InvalidArgumentException::class);
         $nope = Mockery::mock();
         $pool = new Pool();
         $pool->add($nope);

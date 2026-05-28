@@ -38,7 +38,7 @@ class TestCase extends \PHPUnit\Framework\TestCase
             $this->assertSameSize($expected[$i], $actual[$i]);
             $expectedChildCount = count($expected[$i]);
             for ($j = 0; $j < $expectedChildCount; $j++) {
-                $this->assertRegExp($expected[$i][$j], $actual[$i][$j], sprintf('group: %d, line: %d', $i + 1, $j + 1));
+                $this->assertMatchesRegularExpression($expected[$i][$j], $actual[$i][$j], sprintf('group: %d, line: %d', $i + 1, $j + 1));
             }
         }
     }

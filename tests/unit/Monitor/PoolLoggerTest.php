@@ -11,8 +11,9 @@
  * @link    https://github.com/graze/parallel-process
  */
 
-namespace Graze\ParallelProcess\Test\Unit\Display;
+namespace Graze\ParallelProcess\Test\Unit\Monitor;
 
+use DMS\PHPUnitExtensions\ArraySubset\ArraySubsetAsserts;
 use Graze\ParallelProcess\CallbackRun;
 use Graze\ParallelProcess\Monitor\PoolLogger;
 use Graze\ParallelProcess\Pool;
@@ -22,6 +23,8 @@ use Psr\Log\LogLevel;
 
 class PoolLoggerTest extends TestCase
 {
+    use ArraySubsetAsserts;
+
     /** @var BufferedLogger */
     private $logger;
     /** @var PoolLogger */
@@ -50,7 +53,7 @@ class PoolLoggerTest extends TestCase
         $this->assertCount(3, $logs); // add, successful, complete
         list($level, $message, $context) = reset($logs);
         $this->assertEquals(LogLevel::DEBUG, $level);
-        $this->assertRegExp('/^run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: has started$/i', $message);
+        $this->assertMatchesRegularExpression('/^run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: has started$/i', $message);
         $this->assertArraySubset(
             [
                 'run' => [
@@ -78,7 +81,7 @@ class PoolLoggerTest extends TestCase
         $this->assertCount(3, $logs); // add, successful, complete
         list($level, $message, $context) = $logs[1];
         $this->assertEquals(LogLevel::DEBUG, $level);
-        $this->assertRegExp('/^run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: successfully finished$/i', $message);
+        $this->assertMatchesRegularExpression('/^run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: successfully finished$/i', $message);
         $this->assertArraySubset(
             [
                 'run' => [
@@ -107,7 +110,7 @@ class PoolLoggerTest extends TestCase
         $this->assertCount(3, $logs); // add, failed, complete
         list($level, $message, $context) = $logs[1];
         $this->assertEquals(LogLevel::DEBUG, $level);
-        $this->assertRegExp('/^run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: failed - failed$/i', $message);
+        $this->assertMatchesRegularExpression('/^run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: failed - failed$/i', $message);
         $this->assertArraySubset(
             [
                 'run'    => [
@@ -136,7 +139,7 @@ class PoolLoggerTest extends TestCase
         $this->assertCount(3, $logs); // add, successful, complete
         list($level, $message, $context) = $logs[2];
         $this->assertEquals(LogLevel::DEBUG, $level);
-        $this->assertRegExp('/^run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: has finished running$/i', $message);
+        $this->assertMatchesRegularExpression('/^run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: has finished running$/i', $message);
         $this->assertArraySubset(
             [
                 'run' => [
@@ -166,7 +169,7 @@ class PoolLoggerTest extends TestCase
         $this->assertCount(1, $logs);
         list($level, $message, $context) = $logs[0];
         $this->assertEquals(LogLevel::DEBUG, $level);
-        $this->assertRegExp(
+        $this->assertMatchesRegularExpression(
             '/^pool \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\] has been added$/i',
             $message
         );
@@ -207,7 +210,7 @@ class PoolLoggerTest extends TestCase
         $this->assertCount(8, $logs);
         list($level, $message, $context) = $logs[1];
         $this->assertEquals(LogLevel::DEBUG, $level);
-        $this->assertRegExp('/^pool \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: updated$/i', $message);
+        $this->assertMatchesRegularExpression('/^pool \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: updated$/i', $message);
         $this->assertArraySubset(
             [
                 'pool' => [
@@ -221,7 +224,7 @@ class PoolLoggerTest extends TestCase
 
         list($level, $message, $context) = $logs[6];
         $this->assertEquals(LogLevel::DEBUG, $level);
-        $this->assertRegExp('/^run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: has finished running$/i', $message);
+        $this->assertMatchesRegularExpression('/^run \[[\\a-zA-Z0-9]+\:[a-z0-9]+\]: has finished running$/i', $message);
         $this->assertArraySubset(
             [
                 'pool' => [

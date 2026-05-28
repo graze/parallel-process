@@ -74,12 +74,12 @@ class TinyProgressBarTest extends TestCase
 
     /**
      * @dataProvider invalidLengthsData
-     * @expectedException \InvalidArgumentException
      *
      * @param int $length
      */
     public function testInvalidLengthWillThrowAnException($length)
     {
+        $this->expectException(\InvalidArgumentException::class);
         new TinyProgressBar($length);
     }
 
@@ -97,12 +97,12 @@ class TinyProgressBarTest extends TestCase
 
     /**
      * @dataProvider invalidMaxData
-     * @expectedException \InvalidArgumentException
      *
      * @param int $max
      */
     public function testInvalidMaximumValuesWillThrowAnException($max)
     {
+        $this->expectException(\InvalidArgumentException::class);
         new TinyProgressBar(3, TinyProgressBar::FORMAT_DEFAULT, $max);
     }
 

@@ -39,11 +39,9 @@ class EventDispatcherTest extends TestCase
         );
     }
 
-    /**
-     * @expectedException \InvalidArgumentException
-     */
     public function testInvalidNameAddListenerThrowsAnException()
     {
+        $this->expectException(\InvalidArgumentException::class);
         $this->dispatcher->addListener(
             EventDispatcherFake::EVENT_INVALID,
             function () {
@@ -59,11 +57,9 @@ class EventDispatcherTest extends TestCase
         $this->assertTrue(true);
     }
 
-    /**
-     * @expectedException \InvalidArgumentException
-     */
     public function testInvalidNameDispatchThrowsAnException()
     {
+        $this->expectException(\InvalidArgumentException::class);
         $this->dispatcher->doDispatch(EventDispatcherFake::EVENT_INVALID, new Event());
     }
 }
